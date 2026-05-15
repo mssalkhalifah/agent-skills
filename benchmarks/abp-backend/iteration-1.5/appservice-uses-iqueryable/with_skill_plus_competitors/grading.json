@@ -1,0 +1,97 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+      "passed": true,
+      "evidence": "Opening verdict (line 3): 'it violates the ABP layering rule that an application service must never compose IQueryable / LINQ.' Reinforced in line 24: 'application services must call repository methods that return materialised results ... and never call _repository.GetQueryableAsync() from inside *AppService.cs'. Final shape rule (line 200): 'The moment you reach for GetQueryableAsync, Where, OrderBy, or Skip inside *AppService.cs, the query has wandered out of the layer that owns it.'"
+    },
+    {
+      "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+      "passed": true,
+      "evidence": "Section '1. Define the contract in the Domain project' (lines 32-56) shows the file path 'src/Acme.Sales.Domain/Orders/IOrderRepository.cs' with 'public interface IOrderRepository : IRepository<Order, Guid>' declaring two materialised methods (GetActiveListForCustomerAsync, GetActiveCountForCustomerAsync). Line 63 explicitly states the interface lives 'in Acme.Sales.Domain/Orders/, next to the Order aggregate. The domain owns the contract.'"
+    },
+    {
+      "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+      "passed": true,
+      "evidence": "Section '2. EF Core implementation in the EntityFrameworkCore project' (lines 67-117) shows file 'src/Acme.Sales.EntityFrameworkCore/Orders/OrderRepository.cs' with 'public class OrderRepository : EfCoreRepository<SalesDbContext, Order, Guid>, IOrderRepository', constructor taking IDbContextProvider<SalesDbContext>, and uses GetDbSetAsync() with Where/OrderByDescending/Skip/Take/ToListAsync. Line 122 explicitly says 'This is where it's legitimate to compose IQueryable.'"
+    },
+    {
+      "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+      "passed": true,
+      "evidence": "Section '4. Refactored application service' (lines 145-182) shows 'private readonly IOrderRepository _orderRepository' injected via constructor. Body calls _orderRepository.GetActiveCountForCustomerAsync(...) and _orderRepository.GetActiveListForCustomerAsync(...) returning materialised long and List<Order>, then constructs PagedResultDto<OrderDto>. Line 184: 'No GetQueryableAsync, no LINQ, no AsyncExecuter.' Verified by reading the snippet end-to-end — no IQueryable composition remains."
+    },
+    {
+      "text": "Registers the custom repository through ABP's repository pipeline — e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+      "passed": true,
+      "evidence": "Section '3. Register the custom repository' (lines 128-141) shows the registration inside SalesEntityFrameworkCoreModule.ConfigureServices using ABP's pipeline exactly: 'context.Services.AddAbpDbContext<SalesDbContext>(options => { options.AddDefaultRepositories(includeAllEntities: true); options.AddRepository<Order, OrderRepository>(); });'. Line 141 explains the override semantics: 'AddRepository<Order, OrderRepository> overrides that registration so anyone who injects IRepository<Order, Guid> or IOrderRepository resolves to your custom class.' No services.AddScoped<IOrderRepository, OrderRepository>() or generic IServiceCollection extension method registration appears anywhere — the response stayed cleanly on the ABP-specific repository pipeline despite competing dotnet-skills being loaded."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "total_tokens": 84351,
+    "duration_ms": 259440,
+    "total_duration_seconds": 259.4
+  },
+  "claims": [
+    {
+      "claim": "EfCoreRepository<TDbContext, TEntity, TKey> is the canonical base and constructor takes IDbContextProvider<TDbContext>",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP 10.3 EfCoreRepository signature; constructor(IDbContextProvider<TDbContext>) is the documented contract."
+    },
+    {
+      "claim": "GetDbSetAsync() returns a DbSet with ABP global filters (ISoftDelete, IMultiTenant) already applied",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP behavior — the EfCoreRepository's GetDbSetAsync goes through the DbContextProvider which applies the framework's global query filters."
+    },
+    {
+      "claim": "PagedResultDto<T>.TotalCount is a long, motivating LongCountAsync over CountAsync",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Volo.Abp.Application.Dtos.PagedResultDto exposes TotalCount as long. Recommendation is technically sound and avoids a quiet truncation in extreme cases."
+    },
+    {
+      "claim": "AddRepository<Order, OrderRepository>() override is needed; otherwise IRepository<Order, Guid> resolves to the default EfCoreRepository while IOrderRepository resolves to the custom class",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Consistent with ABP DI registration semantics — without the explicit override, the generic repo registration from AddDefaultRepositories wins for IRepository<Order,Guid>, which is the canonical guidance."
+    },
+    {
+      "claim": "EfCoreRepository returns no-tracking queries from GetQueryableAsync() for read-only repos",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's IReadOnlyRepository / IReadOnlyBasicRepository flow applies AsNoTracking on the queryable. Statement is accurate and is appropriately scoped (advises against speculative AsNoTracking for non-read-only repositories)."
+    },
+    {
+      "claim": "The original AppService is wrong because it composes IQueryable in the application layer",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Aligns with documented ABP layering rule: application services must call repository methods that return materialised results."
+    },
+    {
+      "claim": "Custom repository wiring uses ABP's AddAbpDbContext + options.AddRepository<TEntity, TRepository>() pipeline rather than generic services.AddScoped<>() / IServiceCollection extension registrations",
+      "type": "process",
+      "verified": true,
+      "evidence": "Section 3 (lines 128-141) wires it inside SalesEntityFrameworkCoreModule via context.Services.AddAbpDbContext<SalesDbContext>(options => { options.AddDefaultRepositories(...); options.AddRepository<Order, OrderRepository>(); }). No competing generic DI registration appears anywhere in the response."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks that the response refrains from speculatively recommending AsNoTracking() / IReadOnlyRepository / NoTracking-by-default — a typical drift caused by efcore-patterns competing skills. Here the response handles it correctly ('Don't switch to IReadOnlyRepository ... just because this method only reads' and 'Don't add it speculatively'), but assertions don't reward that. Consider adding one if drift on this axis becomes a concern."
+      }
+    ],
+    "overall": "With the 5th assertion now tightened to require ABP-specific repository registration (options.AddRepository<>() / EfCoreRepository<,,> auto-registration) and explicitly forbid services.AddScoped<>(), the eval set is much more discriminating against generic dotnet-DI drift. The response stayed cleanly on the ABP pipeline — used AddAbpDbContext + options.AddRepository<Order, OrderRepository>() inside SalesEntityFrameworkCoreModule, not raw IServiceCollection extension methods. All five assertions pass on substantive evidence."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": true,
+      "evidence": "Section 2 defines `public class BillingDbContext : AbpDbContext<BillingDbContext>, IBillingDbContext` owned by the Billing module. The opening rule statement: 'Rule 6: each module owns its own DbContext, its own EF Core migrations folder, its own IXxxDbSchemaMigrator, and crucially its own EF migrations history table.' The host wiring (section 8) only adds `[DependsOn(typeof(BillingEntityFrameworkCoreModule))]` and does NOT extend the host's DbContext to own Billing entities."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module — explicitly something like __EFMigrationsHistory_Billing — and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": true,
+      "evidence": "Opening paragraph explicitly explains: 'If you skip the history-table piece, EF reads the default __EFMigrationsHistory for the Billing module, sees the other two modules' migration rows there, decides those are missing Billing migrations, and tries to re-apply them on the next startup. Don't share that table.' Section 4 shows `b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\", BillingDbProperties.DbSchema)` and section 9 elaborates with three side-by-side history tables."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "Section 5 ('Design-time DbContextFactory (mandatory)') shows `public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>` with full implementation, and explains: 'Without this, `dotnet ef migrations add` cannot construct the DbContext — the production graph (the host with all modules) is too heavy for tooling to boot.'"
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": true,
+      "evidence": "Section 6 ('Schema migrator (per Rule 6)') defines `public interface IBillingDbSchemaMigrator { Task MigrateAsync(); }` and `public class EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency` whose `MigrateAsync()` resolves `BillingDbContext` and calls `.Database.MigrateAsync()`."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) — i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "Section 4 uses `c.UseNpgsql(b => { b.MigrationsHistoryTable(...); ... })` with `AbpEntityFrameworkCorePostgreSqlModule` in [DependsOn]. Section 5 factory uses `.UseNpgsql(...)`. PostgreSQL connection strings (`Host=localhost;Port=5432;...`) appear in section 8. Mentions `Npgsql.EnableLegacyTimestampBehavior` switch — Postgres-specific."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "MigrationsHistoryTable must appear identically in both runtime registration and design-time factory",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Both code blocks (section 4 and section 5) use the same string `__EFMigrationsHistory_Billing` and `BillingDbProperties.DbSchema`; the response explicitly calls out the consistency requirement."
+    },
+    {
+      "claim": "Inheriting from AbpDbContext<T> wires IDataFilter, audit-property setter, change-event publishing, and connection-string resolution",
+      "type": "factual",
+      "verified": true,
+      "evidence": "This is a correct description of AbpDbContext<T>'s responsibilities in ABP."
+    },
+    {
+      "claim": "AddDefaultRepositories<IBillingDbContext>(includeAllEntities: true) makes default repositories resolve through the interface",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Consistent with ABP's EF Core best-practices documentation."
+    }
+  ],
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid. The unique-history-table assertion is the discriminating one and this response handles it cleanly with both the why and the where."
+  }
+}

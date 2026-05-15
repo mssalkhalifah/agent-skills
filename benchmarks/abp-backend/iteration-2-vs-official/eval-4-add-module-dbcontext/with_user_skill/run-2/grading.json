@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": true,
+      "evidence": "Every internal ABP module in a multi-module Layered solution owns its persistence stack. That means Acme.Billing ships its own DbContext... Do not extend the host's DbContext and do not share a DbContext with the other two modules."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": true,
+      "evidence": "MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\") - without this, EF writes to the default __EFMigrationsHistory table that the other two modules also write to... EF compares the migrations baked into BillingDbContext against rows it sees from the other modules and treats them as missing - it will try to re-apply them."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>... dotnet ef migrations add does not boot the full ABP host. Without a design-time factory, EF tooling cannot construct BillingDbContext."
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": true,
+      "evidence": "public interface IBillingDbSchemaMigrator { Task MigrateAsync(); } and class EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency calling dbContext.Database.MigrateAsync()."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "c.UseNpgsql(b => b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\")) with AbpEntityFrameworkCorePostgreSqlModule dependency."
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

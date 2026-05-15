@@ -1,0 +1,11 @@
+{
+  "name": "abp-frontend",
+  "version": "0.1.0",
+  "description": "ABP Framework UI guidance for ABP 10.3 — MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), and .NET MAUI, plus LeptonX theming, navigation, layout hooks, and dynamic/static service proxies.",
+  "author": {
+    "name": "mssalkhalifah",
+    "email": "mssalkhalifah@protonmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["abp", "abp-framework", "blazor", "angular", "maui", "react-native", "leptonx", "frontend"]
+}

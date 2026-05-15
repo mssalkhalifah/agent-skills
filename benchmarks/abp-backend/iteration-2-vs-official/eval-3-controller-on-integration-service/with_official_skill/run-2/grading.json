@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Delete the hand-written `FormSubmissionIntegrationController` ... Delete `FormSubmissionIntegrationController` from `Acme.Forms.HttpApi`."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP wires HTTP exposure for integration services **implicitly** through the dynamic API / auto-controller pipeline ... `Configure<AbpAspNetCoreMvcOptions>(options => { options.ExposeIntegrationServices = true; });`"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "`[IntegrationService]` on the interface in `Acme.Forms.Application.Contracts` \u2014 correct ... Implementation in `Acme.Forms.Application` derives from `ApplicationService` and implements the interface \u2014 correct."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Hidden from `/api` by design. Integration services are intentionally **not** exposed under the normal `/api` surface ... Audit logging is off by default ... No `[Authorize]` by default"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

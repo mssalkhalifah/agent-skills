@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "cross-module-read",
+  "prompt": "I'm working in an ABP 10.3 Layered modular monolith. My `Acme.Reports` module needs to read 'how many submissions a given owner has' from the `Acme.Forms` module to build a report. The Forms module already has a `FormSubmissionAppService` with this query. Can I just inject `IFormSubmissionAppService` into my `ReportAppService`? What's the right pattern?",
+  "assertions": [
+    "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+    "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+    "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+    "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+    "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+    "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+    "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) \u2014 NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary"
+  ]
+}

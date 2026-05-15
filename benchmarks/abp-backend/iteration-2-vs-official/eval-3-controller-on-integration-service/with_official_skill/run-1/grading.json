@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Delete the hand-written `FormSubmissionIntegrationController` entirely ... Delete `FormSubmissionIntegrationController` entirely. No controller file. None."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP's **Auto API Controllers** machinery already exposes application services (including integration services) over HTTP **implicitly** ... `options.ExposeIntegrationServices = true;`"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "Contracts project \u2014 interface ... Correct: `[IntegrationService]` attribute applied, `IApplicationService` base, placed in the `*.Application.Contracts` project ... Application project \u2014 implementation ... Also correct"
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Hidden from the public `/api/...` Swagger / discovery surface ... Audit-logging off by default ... No `[Authorize]` applied by default ... Slapping `[Authorize]` on your controller imposes UI-style user authentication"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Delete the `FormSubmissionIntegrationController`. ... Delete `Acme.Forms.HttpApi/FormSubmissionIntegrationController.cs`. Do not replace it with anything."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP wires their HTTP exposure implicitly through the integration-services pipeline ... ABP already exposes `[IntegrationService]`-marked services over `/integration-api/...` automatically in a Microservice deployment"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "The interface ... is exactly the Rule 5 shape ... The implementation ... Matches the worked example in Rule 5 essentially verbatim."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "You've put it on the *public* `/api` surface. Integration services are *hidden from `/api`* by default ... You've turned auditing back on ... You've added `[Authorize]` where the default is no `[Authorize]`."
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Delete the hand-written `FormSubmissionIntegrationController` entirely. ... Delete the file containing `FormSubmissionIntegrationController` from `Acme.Forms.HttpApi`. Do not replace it with anything."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP wires the HTTP exposure implicitly. No controller. No route. No DI plumbing ... `options.ExposeIntegrationServices = true;` ... ABP routes them under a separate convention (`/integration-api/...`)"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "IFormSubmissionIntegrationService` in `Acme.Forms.Application.Contracts` with `[IntegrationService]` and extending `IApplicationService` - correct ... `FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService` in `Acme.Forms.Application` - correct."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Integration Services are **not** `[Authorize]` by default ... Integration Services are intentionally **hidden from the public `/api/...` surface and from Swagger / API audit logging** by default"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

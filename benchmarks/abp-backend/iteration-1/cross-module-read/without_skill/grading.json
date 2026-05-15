@@ -1,0 +1,88 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+      "passed": true,
+      "evidence": "Opens with: \"**don't inject `IFormSubmissionAppService` into your `ReportAppService`.**\" and devotes the \"Why 'just inject the AppService' is a smell\" section to explaining why."
+    },
+    {
+      "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+      "passed": true,
+      "evidence": "Section \"1. Integration Service (recommended for this case)\" and code shows `[IntegrationService] // Volo.Abp.Application.Services.IntegrationServiceAttribute` on both the interface and implementation."
+    },
+    {
+      "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+      "passed": true,
+      "evidence": "File comment `// Acme.Forms.Application.Contracts/Integration/IFormSubmissionIntegrationService.cs` and prose: \"Define it in `Acme.Forms.Application.Contracts`\"."
+    },
+    {
+      "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+      "passed": true,
+      "evidence": "File comment `// Acme.Forms.Application/Integration/FormSubmissionIntegrationService.cs` with class `FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService` and `[IntegrationService]` attribute."
+    },
+    {
+      "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+      "passed": true,
+      "evidence": "\"Dynamic HTTP API generation **skips** it (it doesn't get auto-exposed as a controller)\", \"Auto-API-controller conventions ignore it\", \"Authorization/audit defaults are tuned for service-to-service rather than end-user calls\", and later \"It's auto-excluded from the public HTTP API\"."
+    },
+    {
+      "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+      "passed": true,
+      "evidence": "\"If you ever split Forms out into its own service, the integration service is the seam — you replace the in-process call with an HTTP/`IDistributedEventBus` implementation without touching `ReportAppService`.\" Frames same-contract/different-transport, though it conflates HTTP proxy with distributed events. Still passes since in-process DI now vs HTTP later is mentioned with the same-interface idea."
+    },
+    {
+      "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) — NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+      "passed": true,
+      "evidence": "Explicitly states: \"Module dependency wiring: `AcmeReportsApplicationModule` declares `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]`. **Do not** depend on `AcmeFormsApplicationModule` from Reports.Application — only on the contracts assembly.\" Also reiterated in the concrete recommendation: \"In `AcmeReportsApplicationModule`, `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]`\". The negative case (no DependsOn on Forms.Application) is also called out, satisfying the strict tightened criterion."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "total_tokens": 21310,
+    "duration_ms": 70695
+  },
+  "timing": {
+    "executor_duration_seconds": 70.7,
+    "total_duration_seconds": 70.7
+  },
+  "claims": [
+    {
+      "claim": "Each module owns its own DbContext in ABP",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Standard ABP modular convention — each module typically defines a per-module DbContext for migrations isolation."
+    },
+    {
+      "claim": "Distributed events are an alternative pattern for cross-module reads (eventually consistent)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP supports IDistributedEventBus and ETOs for cross-module/cross-service event-driven integration — accurate framing as an alternative."
+    },
+    {
+      "claim": "AcmeReportsApplicationModule should DependsOn AcmeFormsApplicationContractsModule, not AcmeFormsApplicationModule",
+      "type": "process",
+      "verified": true,
+      "evidence": "Correct ABP modular guidance — consumers reference the contracts module for the interface; the host wires the implementation."
+    },
+    {
+      "claim": "The transport for the microservice case could be IDistributedEventBus",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Slightly imprecise — for synchronous cross-service integration-service calls, ABP typically uses generated HTTP proxy clients; IDistributedEventBus is for asynchronous events, not for replacing a synchronous integration service call. The response conflates two distinct patterns here."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+        "reason": "Could be sharpened to require specifically the generated HTTP proxy client (or /integration-api/ route) rather than allowing 'distributed events' as the cross-service substitute — those are different patterns with different consistency guarantees."
+      }
+    ],
+    "overall": "All seven assertions are reasonable and discriminating; the tightened 7th assertion on contracts-only [DependsOn] wiring is well-targeted and the response satisfies it explicitly."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "writing-commit-messages",
+  "version": "0.1.0",
+  "description": "Author Conventional Commits 1.0.0 messages — type, optional scope, optional !, description, optional body and footers — so CHANGELOG generation, SemVer bumps, and commitlint stay correct.",
+  "author": {
+    "name": "mssalkhalifah",
+    "email": "mssalkhalifah@protonmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["git", "commit", "conventional-commits", "semver", "changelog"]
+}

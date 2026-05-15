@@ -1,0 +1,93 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+      "passed": true,
+      "evidence": "Opening line: 'Short answer: no, don't inject IFormSubmissionAppService into ReportAppService.' Followed by a dedicated 'Why not just inject IFormSubmissionAppService?' section enumerating audit, authz, public-contract, and module-coupling reasons."
+    },
+    {
+      "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+      "passed": true,
+      "evidence": "States 'The right pattern in ABP 10.3 is an Integration Service' and uses `[IntegrationService]` attribute on the interface ('[IntegrationService] public interface IFormSubmissionIntegrationService : IApplicationService'). The whole 'The right pattern: ABP Integration Services' section is dedicated to it."
+    },
+    {
+      "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+      "passed": true,
+      "evidence": "Project-layout block places `IFormSubmissionIntegrationService.cs` under `Acme.Forms.Application.Contracts/IntegrationServices/`. Section '1. Define the contract in the producer's *.Application.Contracts' explicitly documents this and explains why."
+    },
+    {
+      "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+      "passed": true,
+      "evidence": "Section '2. Implement in the producer's *.Application project' shows `FormSubmissionIntegrationService.cs` under `Acme.Forms.Application/IntegrationServices/`, declared `public sealed class FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService`."
+    },
+    {
+      "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+      "passed": true,
+      "evidence": "Comparison table explicitly lists 'Hidden from /api ... routes under /integration-api/... only when ExposeIntegrationServices = true', 'Audit logging off by default (AbpAuditingOptions.IsEnabledForIntegrationService = false)', 'No [Authorize] by default', and 'Hidden from Swagger / API Explorer'."
+    },
+    {
+      "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+      "passed": true,
+      "evidence": "Dedicated section 'In-process vs cross-process — same contract, different transport' contrasts 'Today (Layered modular monolith)' (DI plain method call, no HTTP) with 'Tomorrow (Forms extracted into its own microservice)' (ExposeIntegrationServices=true, AddHttpClientProxies / AddStaticHttpClientProxies, /integration-api routing). Concluding line: 'Same contract, same dependency-injection shape, transport differs by deployment.'"
+    },
+    {
+      "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) — NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+      "passed": true,
+      "evidence": "Section '4. Wire the module dependency the right way' shows `AcmeReportsApplicationModule` with `[DependsOn(typeof(AcmeFormsApplicationContractsModule), typeof(AcmeReportsDomainModule), typeof(AcmeReportsApplicationContractsModule))]` — the only Forms reference is `AcmeFormsApplicationContractsModule` (not `AcmeFormsApplicationModule`); the other two entries are Reports' own modules. The accompanying inline comment says `// <-- contracts only` and the prose explicitly states: 'That's the load-bearing line: depend on the *.ApplicationContracts module, never on AcmeFormsApplicationModule.' Reinforced earlier in the doc: 'The Reports module's *.Application project will [DependsOn] AcmeFormsApplicationContractsModule, not AcmeFormsApplicationModule. The consumer never references the implementation assembly. That's what keeps the boundary intact.' Strictly satisfies the tightened assertion."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "Audit logging is off by default for integration services via AbpAuditingOptions.IsEnabledForIntegrationService = false",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP 10.x documented behavior; the option flag name is correct."
+    },
+    {
+      "claim": "Integration services route under /integration-api/... only when ExposeIntegrationServices = true",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches AbpAspNetCoreMvcOptions.ExposeIntegrationServices behavior; ConventionalControllers.Create with ApplicationServiceTypes.IntegrationServices is the correct registration shape."
+    },
+    {
+      "claim": "Reports module should [DependsOn] AcmeFormsApplicationContractsModule, not AcmeFormsApplicationModule",
+      "type": "process",
+      "verified": true,
+      "evidence": "Correct ABP modularity guidance — consumers depend on the contracts module to keep boundaries intact; the host wires the implementation module separately. The response's [DependsOn] block contains exactly this — only `AcmeFormsApplicationContractsModule` is referenced from the producer side."
+    },
+    {
+      "claim": "Application services should not expose IQueryable; use materialised repository methods like CountAsync",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Aligns with ABP best practices and the response's 'Rule 2 / Rule 3' framework guardrail reference. The implementation correctly uses IReadOnlyRepository<FormSubmission, Guid>.CountAsync."
+    },
+    {
+      "claim": "Multi-tenancy CurrentTenant ambient propagates in-process and ABP HTTP client proxy passes the tenant header automatically across services",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Correct ABP behavior — ICurrentTenant flows through async context in-process, and the dynamic/static HTTP client proxies forward the __tenant header."
+    }
+  ],
+  "timing": {
+    "total_tokens": 86557,
+    "duration_ms": 265542,
+    "total_duration_seconds": 265.5
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks that IQueryable is avoided / a materialised repository method (CountAsync etc.) is used in the integration service implementation — competing skills (csharp-api-design, microsoft-extensions-dependency-injection) could push toward exposing IQueryable from the integration service and still pass the current set."
+      },
+      {
+        "reason": "No assertion verifies that the consumer does NOT also get tempted to add a host-level shared 'Common' / 'Shared' types project as the contract carrier. A response that put IFormSubmissionIntegrationService in a neutral shared assembly (rather than in producer's Application.Contracts) could satisfy assertions 3 and 7 only loosely if the wording 'or *.Contracts' is read leniently."
+      }
+    ],
+    "overall": "With the tightened 7th assertion, the response still passes cleanly: only AcmeFormsApplicationContractsModule is referenced from the producer side in the consumer's [DependsOn], explicitly captioned as the load-bearing detail. Despite competing dotnet-skills loaded alongside the abp skill, the response stayed firmly on canonical ABP Integration Services with no drift toward manual HttpClient, a generic shared types project, MediatR, or generic .NET DI abstractions."
+  }
+}

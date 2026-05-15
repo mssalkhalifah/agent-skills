@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+      "passed": true,
+      "evidence": "Issue 1: 'Persistence inside the domain service (biggest problem)... a domain service creates and returns the aggregate; it does not persist it.'"
+    },
+    {
+      "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+      "passed": false,
+      "evidence": "Manager still injects IRepository<Customer, Guid> and IOrderRepository (extends IRepository); IReadOnlyRepository never mentioned"
+    },
+    {
+      "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+      "passed": false,
+      "evidence": "'ChangePriceAsync - removed entirely... The application service mutates the loaded Order directly' - no ChangePriceAsync on Manager"
+    },
+    {
+      "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+      "passed": true,
+      "evidence": "'return new Order(GuidGenerator.Create(), customerId, number);' with 'No InsertAsync here'"
+    },
+    {
+      "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+      "passed": false,
+      "evidence": "AppService holds IOrderRepository and calls InsertAsync/UpdateAsync, but Id is minted inside Manager.CreateAsync via GuidGenerator.Create(), not in AppService"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 2,
+    "failed": 3,
+    "pass_rate": 0.4
+  }
+}

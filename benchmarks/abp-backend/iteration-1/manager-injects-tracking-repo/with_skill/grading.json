@@ -1,0 +1,67 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+      "passed": true,
+      "evidence": "Section '1. Domain services must not persist (Rule 3)': 'It must never call InsertAsync / UpdateAsync / DeleteAsync... Your CreateAsync calls _orderRepository.InsertAsync(order, autoSave: true) and ChangePriceAsync calls _orderRepository.UpdateAsync(order). Both are forbidden in a domain service.'"
+    },
+    {
+      "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+      "passed": true,
+      "evidence": "Corrected manager declares 'private readonly IReadOnlyRepository<Customer, Guid> _customerRepository;' and 'private readonly IReadOnlyRepository<Order, Guid> _orderRepository;' and the prose: 'A *Manager should inject IReadOnlyRepository<T, TKey> for every repository it needs'"
+    },
+    {
+      "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+      "passed": true,
+      "evidence": "'public Task ChangePriceAsync(Order order, decimal newPrice) { order.SetPrice(newPrice); return Task.CompletedTask; }' — entity is passed in, no GetAsync inside the manager"
+    },
+    {
+      "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+      "passed": true,
+      "evidence": "'return new Order(id, customerId, number); // Manager does NOT persist' inside CreateAsync"
+    },
+    {
+      "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+      "passed": true,
+      "evidence": "OrderAppService has 'private readonly IRepository<Order, Guid> _orderRepository; // tracking repo lives HERE', mints id via 'GuidGenerator.Create()', calls '_orderManager.CreateAsync(...)' and '_orderManager.ChangePriceAsync(order, newPrice)', and persists via '_orderRepository.InsertAsync(order)' and '_orderRepository.UpdateAsync(order)'"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "Domain services must not persist; the application service flushes when its method returns under the same UoW",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP DDD guidance — domain services run inside the same UoW; persistence is owned by the application layer"
+    },
+    {
+      "claim": "Price-range invariant should live in Order.SetPrice rather than the manager",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Standard DDD guidance — entity-level state-only invariants belong on the aggregate; response also moves the BusinessException into Order.SetPrice"
+    },
+    {
+      "claim": "GuidGenerator is available on both ApplicationService and DomainService base classes",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Both base classes expose GuidGenerator via property injection in ABP — accurate"
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks that the response surfaces the entity-level invariant move (newPrice <= 0 belongs in Order.SetPrice). Both responses raised it, but a response that left the price guard in the Manager would still pass all 5 assertions."
+      },
+      {
+        "assertion": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+        "reason": "Could be strengthened by also asserting that the Manager's CreateAsync accepts the pre-minted Id as a parameter (rather than calling GuidGenerator internally) — this is the conventional ABP pattern and helps discriminate borderline solutions."
+      }
+    ],
+    "overall": "Assertions are well-targeted at the core 'Manager should not persist / should not hold tracking repos' lesson and clearly discriminate the two responses."
+  }
+}

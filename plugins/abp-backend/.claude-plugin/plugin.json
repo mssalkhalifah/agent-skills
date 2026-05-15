@@ -1,0 +1,11 @@
+{
+  "name": "abp-backend",
+  "version": "0.1.0",
+  "description": "ABP Framework backend guidance for ABP 10.3 .NET solutions — DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authorization, validation, and the abp CLI / Studio / Suite.",
+  "author": {
+    "name": "mssalkhalifah",
+    "email": "mssalkhalifah@protonmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["abp", "abp-framework", "dotnet", "ddd", "ef-core", "backend"]
+}

@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+      "passed": true,
+      "evidence": "**No \u2014 do not inject `IFormSubmissionAppService` directly into `ReportAppService`.**"
+    },
+    {
+      "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+      "passed": true,
+      "evidence": "The correct pattern in an ABP **layered modular monolith** is an **Integration Service** ... `[IntegrationService] public interface IFormSubmissionIntegrationService : IApplicationService`"
+    },
+    {
+      "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+      "passed": true,
+      "evidence": "### 1. Interface + DTO \u2014 in `Acme.Forms.Application.Contracts` ... This is the only Forms project Reports is allowed to reference."
+    },
+    {
+      "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+      "passed": true,
+      "evidence": "### 2. Implementation \u2014 in `Acme.Forms.Application` ... `public class FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService`"
+    },
+    {
+      "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+      "passed": true,
+      "evidence": "By default, integration services are **not** exposed as auto-API endpoints (you opt in with `ExposeIntegrationServices = true` only if you actually want them on HTTP \u2014 in a single-process monolith you usually don't). ... Authorization on integration services is typically not the UI permission ... or omit `[Authorize]`"
+    },
+    {
+      "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+      "passed": true,
+      "evidence": "## Modular-monolith vs microservice: the transport difference ... **the contract stays identical; only the transport changes.** ... DI resolves `IFormSubmissionIntegrationService` to the **concrete `FormSubmissionIntegrationService`** ... [microservice] DI now resolves the interface to the generated **HTTP client proxy**"
+    },
+    {
+      "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) \u2014 NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+      "passed": true,
+      "evidence": "Reports adds a `[DependsOn]` on the Forms **Application.Contracts module**, and only on that. It must never depend on `Acme.Forms.Application` or `Acme.Forms.EntityFrameworkCore`. ... `// Cross-module dependency: ONLY the Contracts module of Forms.` `typeof(AcmeFormsApplicationContractsModule)`"
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "eval_id": 0,
+  "eval_name": "manager-injects-tracking-repo",
+  "prompt": "Review this domain service for an ABP 10.3 Layered solution and tell me if anything is wrong with it. If so, show me the corrected version.\n\n```csharp\nusing System.Threading.Tasks;\nusing Volo.Abp;\nusing Volo.Abp.Domain.Repositories;\nusing Volo.Abp.Domain.Services;\n\nnamespace Acme.Sales;\n\npublic class OrderManager : DomainService\n{\n    private readonly IRepository<Customer, Guid> _customerRepository;\n    private readonly IRepository<Order, Guid> _orderRepository;\n\n    public OrderManager(\n        IRepository<Customer, Guid> customerRepository,\n        IRepository<Order, Guid> orderRepository)\n    {\n        _customerRepository = customerRepository;\n        _orderRepository = orderRepository;\n    }\n\n    public async Task<Order> CreateAsync(Guid customerId, string number)\n    {\n        var customer = await _customerRepository.GetAsync(customerId);\n\n        if (await _orderRepository.AnyAsync(o => o.Number == number))\n        {\n            throw new BusinessException(\"Sales:OrderNumberAlreadyExists\");\n        }\n\n        var order = new Order(GuidGenerator.Create(), customerId, number);\n        await _orderRepository.InsertAsync(order, autoSave: true);\n        return order;\n    }\n\n    public async Task ChangePriceAsync(Guid orderId, decimal newPrice)\n    {\n        var order = await _orderRepository.GetAsync(orderId);\n        if (newPrice <= 0)\n        {\n            throw new BusinessException(\"Sales:InvalidPrice\");\n        }\n        order.SetPrice(newPrice);\n        await _orderRepository.UpdateAsync(order);\n    }\n}\n```",
+  "assertions": [
+    "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+    "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+    "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+    "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+    "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync"
+  ]
+}

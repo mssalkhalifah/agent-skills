@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "appservice-uses-iqueryable",
+  "prompt": "I need to add a 'list active orders for a customer, sorted by date desc, paged' endpoint. Here's what I have. Anything wrong with this approach? Show me how it should look.\n\n```csharp\npublic class OrderAppService : ApplicationService, IOrderAppService\n{\n    private readonly IRepository<Order, Guid> _orderRepository;\n\n    public OrderAppService(IRepository<Order, Guid> orderRepository)\n    {\n        _orderRepository = orderRepository;\n    }\n\n    public async Task<PagedResultDto<OrderDto>> GetActiveForCustomerAsync(\n        Guid customerId, int skipCount, int maxResultCount)\n    {\n        var queryable = await _orderRepository.GetQueryableAsync();\n        var query = queryable\n            .Where(o => o.CustomerId == customerId && o.Status == OrderStatus.Active)\n            .OrderByDescending(o => o.CreationTime);\n\n        var totalCount = await AsyncExecuter.CountAsync(query);\n        var orders = await AsyncExecuter.ToListAsync(query.Skip(skipCount).Take(maxResultCount));\n\n        return new PagedResultDto<OrderDto>(\n            totalCount,\n            ObjectMapper.Map<List<Order>, List<OrderDto>>(orders));\n    }\n}\n```",
+  "assertions": [
+    "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+    "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+    "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+    "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+    "Registers the custom repository through ABP's repository pipeline \u2014 e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)"
+  ]
+}

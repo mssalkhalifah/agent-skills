@@ -1,0 +1,88 @@
+{
+  "expectations": [
+    {
+      "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+      "passed": true,
+      "evidence": "Opening paragraph: 'The headline issue is that this app service is doing three jobs that don't belong to it: input-shape validation, entity-state guarding, and cross-aggregate uniqueness checking... Every `throw new BusinessException(...)` you have here is a signal that a rule has leaked out of the layer that owns it.' Followed by 'one rule, one home' principle paragraph."
+    },
+    {
+      "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation — i.e. routes them through ABP's validation pipeline",
+      "passed": true,
+      "evidence": "Section 1: 'Input-format validation moves to the DTO (validation pipeline)'. Shows CreateOrderDto with [Required] and [StringLength(32)] attributes on Number, and explains 'ABP intercepts the call, runs DataAnnotationObjectValidationContributor over input, and throws AbpValidationException'. Also mentions FluentValidation as alternative."
+    },
+    {
+      "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept — a *Manager / domain service (or onto the entity) — not the AppService",
+      "passed": true,
+      "evidence": "Section 2 OrderManager.CreateAsync contains: 'if (await _orderRepository.AnyAsync(o => o.Number == number)) { throw new BusinessException(\"Sales:OrderNumberAlreadyExists\")...}'. Manager is a DomainService and uses IReadOnlyRepository<Order, Guid> for the check."
+    },
+    {
+      "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager — not the AppService",
+      "passed": true,
+      "evidence": "Customer entity gets EnsureCanReceiveNewOrder() method that throws BusinessException(\"Sales:CustomerIsBlocked\") when IsBlocked is true. OrderManager calls customer.EnsureCanReceiveNewOrder() after FindAsync."
+    },
+    {
+      "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+      "passed": true,
+      "evidence": "Section 3 shows the refactored OrderAppService.CreateAsync containing only: GuidGenerator.Create() + _orderManager.CreateAsync(...) + _orderRepository.InsertAsync(...) + ObjectMapper.Map(...). Confirmed by 'No `throw new BusinessException(...)` anywhere in the file.'"
+    },
+    {
+      "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method — keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+      "passed": true,
+      "evidence": "All three relocated rules use BusinessException throws from domain-layer code: (1) Customer-not-found: OrderManager.CreateAsync throws `new BusinessException(\"Sales:CustomerNotFound\").WithData(\"CustomerId\", customerId)` after FindAsync returns null. (2) IsBlocked: Customer.EnsureCanReceiveNewOrder() entity-behavior method throws `new BusinessException(\"Sales:CustomerIsBlocked\").WithData(\"CustomerId\", Id)`. (3) Uniqueness: OrderManager.CreateAsync throws `new BusinessException(\"Sales:OrderNumberAlreadyExists\").WithData(\"Number\", number)`. The response explicitly defends ABP's exception-based idiom: 'BusinessException(\"Sales:CustomerNotFound\") is the right ABP idiom for \"domain rule violated\"; it gets serialized to a 403/business-error response. For \"this resource doesn't exist as an HTTP concept\" you'd typically prefer EntityNotFoundException...' No Result<T,E>, Either, or discriminated-union return types appear anywhere — Manager returns Order, not Result<Order, Error>. No try/catch swallowing. Despite csharp-coding-standards being loaded as a competitor skill, the response held firm on ABP's exception-based error model."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "ApplicationService implements IValidationEnabled, so virtual methods get auto-validated",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Accurate description of ABP's validation interception pipeline. ApplicationService base class implements IValidationEnabled, and ABP's UoW/validation interceptors only fire on virtual methods."
+    },
+    {
+      "claim": "Domain services should depend on IReadOnlyRepository for reads, not IRepository, since Manager doesn't persist",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Aligns with ABP best practices — IReadOnlyRepository signals no-tracking and 'this isn't the persistence path'. The Manager in ABP best-practices doc returns the entity for the AppService to persist."
+    },
+    {
+      "claim": "Order constructor should be marked internal so external assemblies can't bypass OrderManager",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Standard ABP/DDD recommendation when entity creation requires invariant checks beyond ctor. The 'internal' visibility prevents bypass from app services in other assemblies."
+    },
+    {
+      "claim": "GuidGenerator.Create() returns sequential GUIDs friendlier to clustered indexes",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's GuidGenerator (SimpleGuidGenerator default, SequentialGuidGenerator when configured) produces sequential-friendly GUIDs by default. Statement is accurate for ABP's typical configuration."
+    },
+    {
+      "claim": "Response holds the line on BusinessException idiom despite csharp-coding-standards skill being loaded",
+      "type": "quality",
+      "verified": true,
+      "evidence": "No Result<T,E>, Either, or discriminated-union types appear. Manager methods return Order (entity) and throw BusinessException for invariant violations. Functional-error-type pressure from competitor skill did not shift the response away from ABP's canonical exception model."
+    }
+  ],
+  "timing": {
+    "executor_duration_seconds": 224.8,
+    "total_duration_seconds": 224.8
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+        "reason": "Assertion 5 narrowly checks for 'throw new BusinessException' specifically — it would still pass if the AppService threw plain ArgumentException, ValidationException, or returned a Result<T,E>. Tightening to 'AppService body contains no throw statements and no validation/guard branches at all' would discriminate better against non-idiomatic refactors that move things out of the AppService body without using ABP's pipeline."
+      },
+      {
+        "reason": "The newly-added assertion 6 is well-targeted at the Result<T,E> / Either drift, but still allows passing if the response uses BusinessException only at the *entity* (Customer.EnsureCanReceiveNewOrder) and uses Result<T> at the Manager — i.e. a hybrid. If the goal is to forbid functional error types entirely from the domain layer, consider adding 'no domain-layer method has a return type matching Result<*>, Either<*,*>, OneOf<*>, or similar discriminated-union shapes'."
+      }
+    ],
+    "overall": "All 6 assertions passed cleanly, including the newly-added 6th tightening assertion. The response is a textbook ABP DDD refactor — every relocated rule uses BusinessException with error-code strings, no functional error types appear, no swallowing. The csharp-coding-standards competitor skill did not pull the response toward Result<T,E>; ABP's idiomatic exception-based model held."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+      "passed": true,
+      "evidence": "Per the official ABP skills, the application layer should orchestrate use cases only \u2014 invariants belong in entities, cross-aggregate rules in a domain service / *Manager, and input format in DTO validation."
+    },
+    {
+      "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation \u2014 i.e. routes them through ABP's validation pipeline",
+      "passed": true,
+      "evidence": "public class CreateOrderDto { [Required] [StringLength(32, MinimumLength = 1)] public string Number ... ABP's validation interceptor converts annotation failures into AbpValidationException -> HTTP 400 automatically."
+    },
+    {
+      "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept \u2014 a *Manager / domain service (or onto the entity) \u2014 not the AppService",
+      "passed": true,
+      "evidence": "public class OrderManager : DomainService ... if (await _orderRepository.FindByNumberAsync(number) != null) throw new BusinessException(\"Sales:OrderNumberAlreadyExists\")"
+    },
+    {
+      "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager \u2014 not the AppService",
+      "passed": true,
+      "evidence": "public void EnsureCanPlaceOrder() { if (IsBlocked) throw new BusinessException(\"Sales:CustomerIsBlocked\").WithData(\"CustomerId\", Id); }"
+    },
+    {
+      "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+      "passed": true,
+      "evidence": "Result: zero BusinessException throws in the app service. ... var order = await _orderManager.CreateAsync(customer, input.Number); await _orderRepository.InsertAsync(order, autoSave: true); return _orderMapper.MapToDto(order);"
+    },
+    {
+      "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method \u2014 keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+      "passed": true,
+      "evidence": "The exception model is preserved \u2014 BusinessException for domain rules, EntityNotFoundException for missing aggregates, AbpValidationException (auto) for malformed input."
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

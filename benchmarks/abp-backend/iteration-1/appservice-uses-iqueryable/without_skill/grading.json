@@ -1,0 +1,73 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+      "passed": true,
+      "evidence": "Section '1. The application service is doing query construction' calls hand-rolling LINQ over IQueryable<Order> 'the biggest smell', enumerating layering and EF-leakage problems and recommending the query be pushed to a custom repository."
+    },
+    {
+      "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+      "passed": true,
+      "evidence": "Section 'Domain layer — the custom repository interface' at 'Acme.OrdersService.Domain/Orders/IOrderRepository.cs' declares 'public interface IOrderRepository : IRepository<Order, Guid>' with GetActiveForCustomerAsync and CountActiveForCustomerAsync methods."
+    },
+    {
+      "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+      "passed": true,
+      "evidence": "Section 'EntityFrameworkCore layer — the repository implementation' shows 'public class EfCoreOrderRepository : EfCoreRepository<OrdersServiceDbContext, Order, Guid>, IOrderRepository' with Where/OrderBy/Skip/Take/Select/ToListAsync inside."
+    },
+    {
+      "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+      "passed": true,
+      "evidence": "Section 'Application layer — the slimmed-down app service' injects IOrderRepository and calls CountActiveForCustomerAsync + GetActiveForCustomerAsync (List<OrderListItem>) into a PagedResultDto<OrderListItemDto>; no GetQueryableAsync call remains."
+    },
+    {
+      "text": "Registers the custom repository through ABP's repository pipeline — e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+      "passed": true,
+      "evidence": "Note at line 173 says: \"ABP's AbpAutofacModule will discover this implementation and wire IOrderRepository to it; if it doesn't (older templates), register it in your *EntityFrameworkCoreModule.ConfigureServices with `context.Services.AddAbpDbContext<OrdersServiceDbContext>(opt => opt.AddRepository<Order, EfCoreOrderRepository>())` or similar. ABP 10.x should auto-register.\" This explicitly references both ABP's auto-registration via EfCoreRepository<,,> inheritance AND the AddRepository<Order, ...> form inside AddAbpDbContext — the two valid ABP pipelines. No services.AddScoped<IOrderRepository, ...> generic registration is suggested."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "ABP's AbpAutofacModule will auto-discover EfCoreOrderRepository and wire IOrderRepository to it",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP auto-registers custom repositories that inherit EfCoreRepository<,,> in the EF Core module's project, per ABP 10.x conventions. Response also offers the explicit AddRepository<Order, EfCoreOrderRepository>() fallback."
+    },
+    {
+      "claim": "AbusinessException is a real ABP type",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The correct ABP type is BusinessException (Volo.Abp.BusinessException). 'AbusinessException' is a typo in the authorization branch on line 209."
+    },
+    {
+      "claim": "PagedAndSortedResultRequestDto enforces MaxMaxResultCount via AbpValidationOptions",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's PagedAndSortedResultRequestDto includes a [Range] attribute on MaxResultCount that respects the configured max (LimitedResultRequestDto.MaxMaxResultCount)."
+    },
+    {
+      "claim": "Returning a read-model (OrderListItem) from the repository is faster and safer than mapping the aggregate",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Projection avoids materialising owned types and navigations — a standard ABP/CQRS recommendation for list endpoints."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "The without_skill response added authorization, validation, and read-model projection concerns that go beyond the prompt's IQueryable question. None of the five assertions reward or penalise this scope expansion — worth deciding whether the eval cares about focused-vs-broad answers."
+      },
+      {
+        "assertion": "Registers the custom repository through ABP's repository pipeline ...",
+        "reason": "Response satisfies this via a hedged 'AbpAutofacModule will discover this... if it doesn't, register with AddRepository<Order, EfCoreOrderRepository>()' note. The hedge is correct but somewhat tentative; consider tightening the assertion further to require an unconditional recommendation if you want a stronger signal."
+      }
+    ],
+    "overall": "All five tightened assertions pass. The response correctly references ABP's auto-registration via EfCoreRepository<,,> inheritance and the AddRepository<,>() form inside AddAbpDbContext, avoiding the disqualifying generic services.AddScoped<>() pattern. Minor typo (AbusinessException) and broader scope expansion noted but do not affect any assertion."
+  }
+}

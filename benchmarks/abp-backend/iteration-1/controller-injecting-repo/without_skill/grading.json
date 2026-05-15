@@ -1,0 +1,75 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+      "passed": true,
+      "evidence": "Section 1 explicitly recommends writing an `OrderAppService : ApplicationService, IOrderAppService` and exposing it via `ConfigureConventionalControllers` so the auto-API replaces the hand-written controller. The corrected `OrderAppService.CreateAsync` contains the manager call, `InsertAsync`, and `ObjectMapper.Map`. TL;DR: 'Move the logic to an OrderAppService; delete the controller.' Auto-API removal is an accepted equivalent of a delegating thin controller."
+    },
+    {
+      "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+      "passed": true,
+      "evidence": "Section 2: 'Controllers live in the presentation/HTTP layer and should depend on the application layer (IOrderAppService), not on domain services or repositories.' Fallback custom-controller guidance: 'the controller should still call into an application service, not the repository or the manager directly.' The response also notes `IObjectMapper`/`ICurrentUser` shouldn't be injected (inherited from `AbpController`)."
+    },
+    {
+      "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) — NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+      "passed": true,
+      "evidence": "Section 3: 'Use permissions, not role checks. Role names are deployment data; permissions are part of your design. Define `OrderPermissions.Create` in your `*.Application.Contracts` project, register it in your `PermissionDefinitionProvider`, grant it to the `sales` role at seed time, then decorate the method with `[Authorize(OrderPermissions.Create)]`.' The corrected AppService snippet (lines 86, 100) shows `[Authorize(OrderPermissions.Default)]` on the class and `[Authorize(OrderPermissions.Create)]` on CreateAsync — permission constants, not role strings, not a bare [Authorize]."
+    },
+    {
+      "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) — no business logic in the controller",
+      "passed": true,
+      "evidence": "The response advocates removing the controller entirely via auto-API ('No controller needed — `ConfigureConventionalControllers` ... auto-exposes `IOrderAppService` as `POST /api/app/order`'). All orchestration (manager call, InsertAsync, Map) is moved into `OrderAppService.CreateAsync`. No business logic remains in any controller. Auto-API removal is accepted as equivalent to a one-line delegating action."
+    },
+    {
+      "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer — on the AppService class or the CreateAsync method itself — NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+      "passed": true,
+      "evidence": "The corrected AppService snippet (lines 86-101) places `[Authorize(OrderPermissions.Default)]` on the `OrderAppService` class and `[Authorize(OrderPermissions.Create)]` directly on the `CreateAsync` method. Authorization is enforced at the AppService layer, satisfying the requirement that the AppService be the authz boundary regardless of caller (HTTP, background job, event handler)."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "Auto-API discovers IApplicationService implementations and generates dynamic JS/C# proxies; controllers don't get the same proxy generation treatment",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Accurate — ABP's auto-API + dynamic-client-proxy pipeline targets IApplicationService implementations registered via ConfigureConventionalControllers."
+    },
+    {
+      "claim": "`autoSave: true` is a smell inside a unit of work because the ambient UoW commits at the end",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Generally correct for ABP — application-service methods run inside an ambient UoW, and `autoSave: true` is only needed when you require the generated Id or other DB-side state mid-method."
+    },
+    {
+      "claim": "OrderManager should generate the Id by injecting/using IGuidGenerator, so the caller doesn't know an Order needs a GUID",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Reasonable ABP idiom — DomainService exposes GuidGenerator and encapsulating Id creation in the manager is widely recommended."
+    },
+    {
+      "claim": "The class is missing [ApiController] (it's not inherited through AbpController)",
+      "type": "factual",
+      "verified": false,
+      "evidence": "AbpController carries Controller/API conventions and AbpController-derived classes typically don't need an explicit [ApiController] in ABP solutions; the framework's MVC conventions wire equivalent behavior. This claim is overstated for an ABP context."
+    },
+    {
+      "claim": "[ValidateModel] is automatic in app services, not in raw controllers in some configurations",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's IObjectValidator / ValidationInterceptor runs around application-service calls; controllers rely on MVC ModelState. The response qualifies this correctly."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "The without_skill response goes broad and adds tangential points (ApiController attribute, controller pluralization, autoSave, validation). A 'response stays focused on the core points' assertion could discriminate signal-vs-noise."
+      }
+    ],
+    "overall": "Assertions (including the tightened ones) are reasonable. The response correctly applies permission-based [Authorize] at the AppService layer (both class and method) and uses an OrderPermissions constant rather than a role string or bare [Authorize]."
+  }
+}

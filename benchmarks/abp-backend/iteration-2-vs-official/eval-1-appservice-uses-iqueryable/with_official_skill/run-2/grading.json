@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+      "passed": true,
+      "evidence": "Querying logic leaks into the application layer. The application service is composing IQueryable<Order> with Where/OrderByDescending/Skip/Take ... Hidden coupling to EF Core. IRepository<T, Guid>.GetQueryableAsync() returns an EF-shaped IQueryable"
+    },
+    {
+      "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+      "passed": true,
+      "evidence": "File: src/MyProject.Domain/Orders/IOrderRepository.cs ... public interface IOrderRepository : IRepository<Order, Guid>"
+    },
+    {
+      "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+      "passed": true,
+      "evidence": "File: src/MyProject.EntityFrameworkCore/Orders/OrderRepository.cs ... public class OrderRepository : EfCoreRepository<MyProjectDbContext, Order, Guid>, IOrderRepository"
+    },
+    {
+      "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+      "passed": true,
+      "evidence": "private readonly IOrderRepository _orderRepository; ... var totalCount = await _orderRepository.GetActiveCountByCustomerAsync(input.CustomerId); var orders = await _orderRepository.GetActiveListByCustomerAsync(...); No IQueryable, no AsyncExecuter in the app service"
+    },
+    {
+      "text": "Registers the custom repository through ABP's repository pipeline \u2014 e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+      "passed": true,
+      "evidence": "context.Services.AddAbpDbContext<MyProjectDbContext>(options => { options.AddDefaultRepositories(); options.AddRepository<Order, OrderRepository>(); });"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

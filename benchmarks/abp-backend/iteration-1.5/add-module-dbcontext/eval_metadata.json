@@ -1,0 +1,12 @@
+{
+  "eval_id": 4,
+  "eval_name": "add-module-dbcontext",
+  "prompt": "I'm adding a new `Acme.Billing` module to my existing ABP 10.3 Layered solution (it's a modular monolith with two existing modules already). The host runs against PostgreSQL. Walk me through everything I need to set up on the EF Core side so migrations work correctly and don't conflict with the other modules. Show me the key files I need to write.",
+  "assertions": [
+    "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+    "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+    "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+    "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+    "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example"
+  ]
+}

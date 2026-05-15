@@ -1,0 +1,87 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+      "passed": true,
+      "evidence": "Section 2 ('The orchestration belongs in OrderAppService'): 'Move the entire body of CreateAsync — the manager call, the InsertAsync, the ObjectMapper.Map — into OrderAppService.CreateAsync.' A full OrderAppService class is shown (lines 23-43) containing the manager call, InsertAsync, and ObjectMapper.Map. Section 4 shows the controller delegating: '=> _orderAppService.CreateAsync(input);'. TL;DR step 3 reiterates the move."
+    },
+    {
+      "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+      "passed": true,
+      "evidence": "Section 1 ('Wrong dependencies — controllers inject one thing only'): 'A controller in this pattern should constructor-inject exactly one collaborator: the application-service interface (IOrderAppService). Everything you've injected is forbidden in a controller' — followed by a per-dependency rejection of IRepository<Order, Guid>, OrderManager, IObjectMapper, and ICurrentUser. TL;DR steps 1 and 2 reinforce: 'Remove IRepository<Order, Guid>, OrderManager, IObjectMapper, ICurrentUser from the controller's constructor. Inject only IOrderAppService.'"
+    },
+    {
+      "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) — NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+      "passed": true,
+      "evidence": "Section 2 places '[Authorize(OrdersPermissions.Create)]' on OrderAppService.CreateAsync (line 34). Section 3 explicitly recommends a permission-based attribute and explains the PermissionDefinitionProvider in *.Application.Contracts: 'ABP's authorization model is permission-based: define a permission (e.g. OrdersPermissions.Create) in a PermissionDefinitionProvider'. TL;DR step 4: 'replace it with a declarative [Authorize(OrdersPermissions.Create)] on the app-service method, where OrdersPermissions.Create is a permission you define in Acme.Orders.Application.Contracts'. The response mentions [Authorize(Roles = \"sales\")] only as an explicitly disrecommended fallback ('but a permission is the right model'), not the primary recommendation. Permission-based attribute is the load-bearing recommendation throughout."
+    },
+    {
+      "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) — no business logic in the controller",
+      "passed": true,
+      "evidence": "Section 4 ('The corrected controller — single delegating expression') shows: '[HttpPost] public Task<OrderDto> CreateAsync(CreateOrderDto input) => _orderAppService.CreateAsync(input);' — single expression-bodied delegation, no business logic, returns the Task directly. TL;DR step 5: 'Reduce the action body to => _orderAppService.CreateAsync(input);'."
+    },
+    {
+      "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer — on the AppService class or the CreateAsync method itself — NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+      "passed": true,
+      "evidence": "Section 2's OrderAppService snippet places '[Authorize(OrdersPermissions.Create)]' directly above the CreateAsync method of the AppService (line 34, immediately preceding 'public async Task<OrderDto> CreateAsync(CreateOrderDto input)'). Section 3 reinforces: 'should be a declarative [Authorize(OrdersPermissions.Create)] attribute on the app-service method (or, if you really want it on the controller side, on the controller action)'. TL;DR step 4: 'on the app-service method'. Section 4's explicit choice: 'the permission check is declared on OrderAppService.CreateAsync ... pick one layer and put it there' — selecting the AppService layer as the authz home. The corrected controller in Section 4 deliberately omits a permission attribute on the action, confirming the authz attribute lives at the AppService layer, not 'only on the controller'."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "output_chars": 6489,
+    "total_tokens": 69537
+  },
+  "timing": {
+    "total_duration_seconds": 83.6
+  },
+  "claims": [
+    {
+      "claim": "ApplicationService base class provides GuidGenerator and ObjectMapper, so the AppService doesn't need to inject IObjectMapper",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Correct for ABP. ApplicationService exposes GuidGenerator and ObjectMapper as inherited properties; the shown OrderAppService correctly uses 'ObjectMapper.Map<Order, OrderDto>(order)' and 'GuidGenerator.Create()' without injecting them."
+    },
+    {
+      "claim": "The controller should implement IOrderAppService alongside the OrderAppService class — the explicit-controller pattern",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP's documented pattern for manual/explicit controllers: both classes implement the same application-service interface so HTTP shape and service shape stay synchronized. The response correctly warns against ExposeServices(typeof(IOrderAppService), typeof(OrderController)) collapsing them and reintroducing forbidden dependencies."
+    },
+    {
+      "claim": "Domain Manager should hold IReadOnlyRepository only; tracking IRepository belongs in the application service",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Consistent with ABP DDD guidance: domain services should not perform persistence; persistence is the application service's responsibility."
+    },
+    {
+      "claim": "Permission attribute placed at the AppService layer enforces authz for any caller (controllers, background jobs, integration services, event handlers) routing through the AppService",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Implicit in Section 4's 'pick one layer and put it there' guidance and in placing the attribute on the AppService method. ABP's authorization filter runs on the AppService method invocation regardless of caller, so the underlying rationale (canonical authz boundary) is satisfied by where the response places the attribute."
+    },
+    {
+      "claim": "autoSave: true forces an immediate flush within the UoW, useful when the generated identity is needed before the request completes",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Accurate description of ABP's autoSave parameter on IRepository.InsertAsync — relevant when the caller needs DB-generated values (or to publish a domain event with the persisted id) before UoW completion."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "All five tightened assertions pass with substantive, layer-correct evidence. The newly added assertion 5 and the tightened assertion 3 now discriminate well between an ABP-idiomatic answer and a generic-.NET answer (role strings, controller-only authz). No further tightening is needed for this prompt; if anything, consider an assertion checking that the AppService itself doesn't re-inject IObjectMapper / GuidGenerator (since ApplicationService provides them) to catch hybrid responses that move orchestration but miss the inherited-property idiom."
+      }
+    ],
+    "overall": "Response passes all 5 tightened assertions strictly. Permission-based [Authorize(OrdersPermissions.Create)] is the primary recommended form (not [Authorize(Roles=\"sales\")] and not a bare [Authorize]); the attribute is placed on the AppService method — the canonical ABP authz boundary — with the controller's class-level [Authorize] serving only as the authentication gate. The corrected controller is a thin HTTP adapter: one injected dependency, one delegating expression, no business logic, no imperative role check."
+  }
+}

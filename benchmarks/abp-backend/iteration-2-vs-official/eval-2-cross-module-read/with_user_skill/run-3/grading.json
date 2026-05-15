@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+      "passed": true,
+      "evidence": "**Short answer: no \u2014 don't inject `IFormSubmissionAppService` into `ReportAppService`.** That's a cross-module read, and the right ABP pattern is an **Integration Service**"
+    },
+    {
+      "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+      "passed": true,
+      "evidence": "## The right pattern \u2014 Integration Service ... `[IntegrationService]   // hidden from public /api, audit-off, no [Authorize] by default`"
+    },
+    {
+      "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+      "passed": true,
+      "evidence": "### 1. Define the contract in `Acme.Forms.Application.Contracts`"
+    },
+    {
+      "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+      "passed": true,
+      "evidence": "### 2. Implement it in `Acme.Forms.Application` ... `public class FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService`"
+    },
+    {
+      "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+      "passed": true,
+      "evidence": "`[IntegrationService]` is the marker that makes this a service-to-service contract: ABP keeps it off the public Swagger/`/api` surface and skips audit logging by default."
+    },
+    {
+      "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+      "passed": true,
+      "evidence": "## Modular monolith vs microservice \u2014 same contract, different transport ... In your Layered modular monolith ... no HTTP hop, no serialization, no gateway. ... If you ever split Forms and Reports into separate microservices: the *same* `[IntegrationService]` interface gets exposed over `/integration-api/...`"
+    },
+    {
+      "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) \u2014 NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+      "passed": true,
+      "evidence": "### 3. Wire the consumer with **contracts-only** `[DependsOn]` ... This is the line that actually preserves the boundary ... `typeof(AcmeFormsApplicationContractsModule),   // contracts only \u2014 RIGHT` ... `// typeof(AcmeFormsApplicationModule),         // full app module \u2014 WRONG (leaks producer internals)`"
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

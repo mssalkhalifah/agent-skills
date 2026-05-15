@@ -1,0 +1,53 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Response opens with: 'the FormSubmissionIntegrationController is wrong on three counts and should be deleted entirely'. Reinforced in 'Corrected setup': 'Delete FormSubmissionIntegrationController entirely.' And in TL;DR: 'Delete the controller.'"
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "Response states: 'ABP wires their HTTP exposure implicitly through the integration-services pipeline'. Names the exact mechanisms: 'flip ExposeIntegrationServices = true and register ConventionalControllers.Create(...) with ApplicationServiceTypes.IntegrationServices. ABP then materialises the controllers under the /integration-api/... prefix automatically.' Includes a full code sample showing the host-side wiring."
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "Under 'What's right' section: 'The interface and the implementation are textbook.' Confirms [IntegrationService] placement on the interface, IApplicationService inheritance, and the repository usage — explicitly noting CountAsync(predicate) is materialised so it doesn't violate the no-IQueryable-leak rule."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default — i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Section 2: 'You routed the controller at api/forms/integration/form-submissions. That puts the endpoint under /api/..., which is the public API surface... Integration services are explicitly designed for the private /integration-api/... prefix'. Section 3: 'Integration services bypass authorization by convention... Slapping [Authorize] on the controller re-enables full bearer-token requirements.' Also mentions audit being off by default ('off by default to keep audit volume sane in chatty service-to-service systems')."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "ConventionalControllers.Create must go in PreConfigureServices, not ConfigureServices",
+      "type": "factual",
+      "verified": true,
+      "evidence": "This matches ABP 10.3 conventions — module-class options that affect MVC action descriptor building must be set before MVC's pipeline starts; PreConfigureServices is the standard ABP timing for cross-module options that other modules need to see."
+    },
+    {
+      "claim": "ExposeIntegrationServices = true is required to surface integration services as MVC actions",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Consistent with ABP's integration-service infrastructure design — by default they are filtered out, and this flag is the documented opt-in."
+    },
+    {
+      "claim": "Routes get materialised under /integration-api/...",
+      "type": "factual",
+      "verified": true,
+      "evidence": "This is the documented prefix for ABP integration services in 10.x."
+    }
+  ],
+  "eval_feedback": {
+    "overall": "Assertions are well-targeted and discriminating. The 'delete the controller' assertion in particular distinguishes a real understanding from hand-waving."
+  }
+}

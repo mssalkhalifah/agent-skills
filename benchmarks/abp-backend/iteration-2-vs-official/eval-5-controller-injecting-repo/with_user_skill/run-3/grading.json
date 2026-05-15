@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+      "passed": true,
+      "evidence": "IRepository<Order, Guid>, OrderManager, IObjectMapper, and ICurrentUser all belong on the application service, not the controller... that orchestration is the application service's contract."
+    },
+    {
+      "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+      "passed": true,
+      "evidence": "One ctor parameter, by design. No IRepository, no OrderManager, no IObjectMapper, no ICurrentUser. If you ever feel the urge to add one, the logic belongs in the AppService."
+    },
+    {
+      "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) \u2014 NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+      "passed": true,
+      "evidence": "Replace with a declarative [Authorize(OrderPermissions.Create)] attribute on the AppService method, with OrderPermissions.Create registered through an OrderPermissionDefinitionProvider."
+    },
+    {
+      "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) \u2014 no business logic in the controller",
+      "passed": true,
+      "evidence": "public Task<OrderDto> CreateAsync(CreateOrderDto input) => _orderAppService.CreateAsync(input);"
+    },
+    {
+      "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer \u2014 on the AppService class or the CreateAsync method itself \u2014 NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+      "passed": true,
+      "evidence": "[Authorize(OrderPermissions.Create)] decorates the AppService CreateAsync method. No [Authorize] on the controller \u2014 it's already on OrderAppService.CreateAsync, so HTTP callers, background jobs, integration services, and event handlers all get the same check."
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

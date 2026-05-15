@@ -1,0 +1,63 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+      "passed": true,
+      "evidence": "Response opens with 'Your OrderAppService calls _orderRepository.GetQueryableAsync() and then composes a LINQ query (Where / OrderByDescending / Skip / Take) directly inside the application service. That violates the framework guardrail that application services must not consume IQueryable'."
+    },
+    {
+      "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+      "passed": true,
+      "evidence": "Section '1. Domain layer — the repository contract' shows 'public interface IOrderRepository : IRepository<Order, Guid>' with comment 'Orders/IOrderRepository.cs (in the Domain project / Domain folder)'."
+    },
+    {
+      "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+      "passed": true,
+      "evidence": "Section '2. EntityFrameworkCore layer — the implementation' defines 'public class OrderRepository : EfCoreRepository<MyAppDbContext, Order, Guid>, IOrderRepository' with the Where/OrderByDescending/Skip/Take LINQ inside, in 'Orders/OrderRepository.cs (in the EntityFrameworkCore project / Data folder)'."
+    },
+    {
+      "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+      "passed": true,
+      "evidence": "Section 4 shows the refactored OrderAppService injecting IOrderRepository and calling CountActiveForCustomerAsync + GetActiveForCustomerAsync, returning PagedResultDto<OrderDto>. Response explicitly states 'No GetQueryableAsync, no AsyncExecuter, no LINQ in the service.'"
+    },
+    {
+      "text": "Registers the custom repository through ABP's repository pipeline — e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+      "passed": true,
+      "evidence": "Section '3. Register the custom repository' shows 'context.Services.AddAbpDbContext<MyAppDbContext>(options => { options.AddDefaultRepositories(includeAllEntities: true); options.AddRepository<Order, OrderRepository>(); });' — exactly the ABP-pipeline form the tightened assertion requires. No services.AddScoped / generic IServiceCollection registration appears anywhere. The OrderRepository class also inherits EfCoreRepository<MyAppDbContext, Order, Guid>, which is the auto-registration fallback the assertion explicitly accepts."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "Registering with options.AddRepository<Order, OrderRepository>() makes IRepository<Order, Guid> also resolve to OrderRepository",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP's documented behaviour for AddRepository — replaces the default repository registration so both the generic IRepository and the custom interface resolve to the same implementation."
+    },
+    {
+      "claim": "OrderByDescending applied before CountAsync is wasted work",
+      "type": "factual",
+      "verified": true,
+      "evidence": "EF Core's query translator typically strips the OrderBy when only Count is requested; the claim is accurate as a code-smell observation, and the refactored repository keeps the ordering only on the page-fetch path."
+    },
+    {
+      "claim": "PagedAndSortedResultRequestDto validates MaxResultCount (max 1000 by default, configurable)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP's standard PagedAndSortedResultRequestDto / IPagedAndSortedResultRequest convention used across CRUD app services."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "Tightened 5th assertion is now the most discriminating in this set — it specifically catches the generic services.AddScoped<IOrderRepository, OrderRepository>() drift that a non-ABP-aware answer would emit. Worth keeping as the load-bearing differentiator for this eval."
+      }
+    ],
+    "overall": "All five tightened assertions still pass. The with_skill response uses options.AddRepository<Order, OrderRepository>() inside AddAbpDbContext<>() configuration verbatim, and additionally satisfies the auto-registration fallback by inheriting EfCoreRepository<,,>; no generic DI registration appears anywhere."
+  }
+}

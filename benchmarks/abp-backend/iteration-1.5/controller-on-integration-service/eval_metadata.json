@@ -1,0 +1,11 @@
+{
+  "eval_id": 3,
+  "eval_name": "controller-on-integration-service",
+  "prompt": "Review this code. I'm setting up an integration service for cross-module reads in our ABP 10.3 microservice setup. Did I do this right?\n\n```csharp\n// In Acme.Forms.Application.Contracts\n[IntegrationService]\npublic interface IFormSubmissionIntegrationService : IApplicationService\n{\n    Task<int> GetSubmissionCountForOwnerAsync(Guid ownerId);\n}\n\n// In Acme.Forms.Application\npublic class FormSubmissionIntegrationService\n    : ApplicationService, IFormSubmissionIntegrationService\n{\n    private readonly IRepository<FormSubmission, Guid> _submissionRepository;\n\n    public FormSubmissionIntegrationService(IRepository<FormSubmission, Guid> submissionRepository)\n    {\n        _submissionRepository = submissionRepository;\n    }\n\n    public Task<int> GetSubmissionCountForOwnerAsync(Guid ownerId)\n        => _submissionRepository.CountAsync(s => s.OwnerId == ownerId);\n}\n\n// In Acme.Forms.HttpApi\n[Authorize]\n[Route(\"api/forms/integration/form-submissions\")]\npublic sealed class FormSubmissionIntegrationController\n    : AbpControllerBase, IFormSubmissionIntegrationService\n{\n    private readonly IFormSubmissionIntegrationService _service;\n\n    public FormSubmissionIntegrationController(IFormSubmissionIntegrationService service)\n    {\n        _service = service;\n    }\n\n    [HttpGet(\"count/{ownerId}\")]\n    public Task<int> GetSubmissionCountForOwnerAsync(Guid ownerId)\n        => _service.GetSubmissionCountForOwnerAsync(ownerId);\n}\n```",
+  "assertions": [
+    "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+    "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+    "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+    "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)"
+  ]
+}

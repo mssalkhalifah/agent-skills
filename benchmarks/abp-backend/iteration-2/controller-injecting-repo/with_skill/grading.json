@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+      "passed": true,
+      "evidence": "Section 'Orchestration in the action body' states: 'CreateAsync is doing the full create dance ... That's an application-service responsibility. The controller action should be a single delegating expression: => _orderAppService.CreateAsync(input);'. Corrected code shows OrderAppService owning manager call, InsertAsync, and ObjectMapper.Map, with controller delegating."
+    },
+    {
+      "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+      "passed": true,
+      "evidence": "Section 1 explicitly: 'A controller in the explicit-controller pattern should inject exactly one thing: the application-service interface.' Lists each of IRepository, OrderManager, IObjectMapper, ICurrentUser as inappropriate. Corrected controller injects only IOrderAppService."
+    },
+    {
+      "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) — NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+      "passed": true,
+      "evidence": "Uses [Authorize(OrderPermissions.Create)] in the corrected code. Section 2 explicitly rejects role strings: 'Also: never [Authorize(Roles=\"sales\")] either — same anti-pattern.' Defines OrderPermissions.Create constant in Application.Contracts and notes registration in OrderPermissionDefinitionProvider."
+    },
+    {
+      "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) — no business logic in the controller",
+      "passed": true,
+      "evidence": "Corrected controller action: 'public Task<OrderDto> CreateAsync(CreateOrderDto input) => _orderAppService.CreateAsync(input);' — single expression-bodied delegation, no logic."
+    },
+    {
+      "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer — on the AppService class or the CreateAsync method itself — NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+      "passed": true,
+      "evidence": "Section 3 'Authorization is on the wrong layer' explains AppService is canonical authz boundary covering background jobs, integration services, event handlers. Corrected OrderAppService.CreateAsync method has [Authorize(OrderPermissions.Create)] attribute, and the controller deliberately omits [Authorize] ('no [Authorize] on the controller (the AppService method already has [Authorize(OrderPermissions.Create)])')."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

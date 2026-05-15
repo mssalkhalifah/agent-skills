@@ -1,0 +1,58 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": false,
+      "evidence": "The response explicitly recommends EXTENDING the host's existing DbContext to own Billing entities. Section 7 is titled 'Host project: extend the host DbContext to also own Billing entities' and has the host `MyAppDbContext` implement `IBillingDbContext` with `[ReplaceDbContext(typeof(IBillingDbContext))]` and `builder.ConfigureBilling()` in OnModelCreating. Section 4 explicitly states: 'this DbContext is only used at design time ... At runtime the host app uses the host DbContext.' Section 10 says 'one physical migration history table (`__EFMigrationsHistory`) — owned by the host context.' This is the opposite of the per-module ownership the assertion requires."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module — explicitly something like __EFMigrationsHistory_Billing — and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": false,
+      "evidence": "The response never mentions a unique migrations history table per module. Instead, section 10 explicitly states: 'Because there is exactly one physical migration history table (`__EFMigrationsHistory`) — owned by the host context — there is no possibility of conflict between modules.' This contradicts the assertion. The DbTablePrefix `Bil` is for module-owned data tables, NOT the EF migrations history table — those are different things. The architecture chosen (single host DbContext owning all entities) eliminates the issue rather than addressing the per-module-history-table pattern the prompt expects."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "Section 9 ('Module-side migrations (design-time only)') shows `public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>` with full CreateDbContext implementation, and notes it is for `dotnet ef migrations add` ('To create the module's own migration: dotnet ef migrations add Initial_Billing_Migration'). Marked as design-time only."
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": false,
+      "evidence": "No `IBillingDbSchemaMigrator` interface and no `EntityFrameworkCoreBillingDbSchemaMigrator` implementation appear anywhere in the response. The response defers all migration execution to the host's `DbMigrator` console app applying host migrations, with no per-module schema migrator pattern shown."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) — i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "Section 8 calls `ctx.UseNpgsql();` on the host EF module. Section 9 design-time factory uses `.UseNpgsql(configuration.GetConnectionString(\"Billing\") ?? configuration.GetConnectionString(\"Default\"));`. Connection string in section 11 is PostgreSQL-shaped (`Host=localhost;Port=5432;Database=MyApp;Username=postgres`). Comments label PostgreSQL behavior (e.g., 'PostgreSQL: leave null, default schema public')."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 3,
+    "total": 5,
+    "pass_rate": 0.4
+  },
+  "claims": [
+    {
+      "claim": "[ReplaceDbContext(typeof(IBillingDbContext))] makes the host DbContext satisfy the module's contract at runtime, so only one DbContext is opened per request",
+      "type": "factual",
+      "verified": true,
+      "evidence": "This is an accurate description of ABP's [ReplaceDbContext] mechanism — but it is being recommended as the default pattern, which conflicts with the prompt's stated need for non-conflicting per-module migrations."
+    },
+    {
+      "claim": "Because there is exactly one physical migration history table (__EFMigrationsHistory) — owned by the host context — there is no possibility of conflict between modules",
+      "type": "factual",
+      "verified": false,
+      "evidence": "This claim is factually accurate for the architecture the response chose, but it sidesteps the actual ABP modular-monolith pattern the prompt is targeting (each module owns its own DbContext + own migrations + own __EFMigrationsHistory_<Module> table). The response's approach makes module-side migrations dead weight ('design-time reference and packaging only') rather than the source of truth."
+    },
+    {
+      "claim": "Module-level dotnet ef migrations works independently for module developers (optional but recommended)",
+      "type": "quality",
+      "verified": false,
+      "evidence": "If module migrations are never applied (as the response states — host migrations are 'the source of truth'), then the module-level migrations folder serves no operational purpose. This contradicts the modular-monolith intent of independent module migration histories."
+    }
+  ],
+  "eval_feedback": {
+    "overall": "The unique-history-table assertion is the discriminating one and the baseline failed it cleanly — it not only omitted `__EFMigrationsHistory_Billing` but actively recommended the opposite architecture (single host DbContext, single history table, ReplaceDbContext). The eval surfaces the architectural mismatch well."
+  }
+}

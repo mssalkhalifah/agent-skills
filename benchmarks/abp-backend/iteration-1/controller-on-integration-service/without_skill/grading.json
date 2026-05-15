@@ -1,0 +1,71 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Response says explicitly: 'In short: delete the controller.' Reinforced near the end: 'And then no FormSubmissionIntegrationController — let ABP's integration-service publishing handle the HTTP surface.'"
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": false,
+      "evidence": "The response asserts the OPPOSITE of the actual ABP behavior: 'When you call ConfigureServices(options => options.ConventionalControllers.Create(typeof(YourApplicationModule).Assembly)), ABP will, by default, exclude types marked [IntegrationService].' It then claims you opt in via 'RemoteServiceName' and a vague reference to 'IntegrationServiceOptions'. It never names the actual mechanism (ExposeIntegrationServices, ApplicationServiceTypes.IntegrationServices, /integration-api prefix). The example code sample even tells the user 'tell ABP to also publish integration services' via opts.RemoteServiceName = \"Forms\" — which is wrong; RemoteServiceName has nothing to do with integration-service exposure. So while it tells the user not to write the controller, it does not correctly explain the implicit wiring mechanism."
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": false,
+      "evidence": "The response does NOT confirm them as correct. Under 'Smaller issues with the code as posted' it flags multiple problems with the implementation: 'IRepository<,> in an integration service... is a write repository. For a read-only count you should prefer IReadOnlyRepository<FormSubmission, Guid>'; 'No CancellationToken'; 'async/await vs returning the task directly'; 'Authorization is missing on the service itself'; 'Returning a primitive int' — and its 'Cleaned-up version' rewrites both the interface and the implementation (changing repository type, return type to a DTO, adds CancellationToken, adds [Authorize(...)] attribute). This contradicts the assertion that the first two blocks should be confirmed correct."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default — i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Response says: 'integration services are deliberately not exposed over HTTP by default'; 'so that ordinary clients (Swagger consumers, the Angular/Blazor frontend...) cannot accidentally hit it. By exposing it on api/forms/integration/... with [Authorize] (just any logged-in user), you've handed it to every authenticated user of the public API surface.' Also: 'options.IsEnabledForIntegrationServices = false; // typical' addresses audit. Covers the hidden-from-public-API and audit angle."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "total": 4,
+    "pass_rate": 0.5
+  },
+  "claims": [
+    {
+      "claim": "ABP excludes [IntegrationService] types from ConventionalControllers.Create by default",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Inverted/confused. ABP's integration-service exposure is gated by ExposeIntegrationServices and ApplicationServiceTypes.IntegrationServices. The response misnames the configuration knob and points the user at RemoteServiceName, which controls remote-service config name (used by HTTP client proxies), not integration-service publishing."
+    },
+    {
+      "claim": "options.IsEnabledForIntegrationServices is the correct ABP option name",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The actual ABP option on AbpAuditingOptions is IsEnabledForIntegrationService (singular). Minor but reflects the response is reasoning from intuition rather than the actual ABP API."
+    },
+    {
+      "claim": "AbpControllerBase should not implement IApplicationService",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Reasonable point on its own, though it slightly muddles the message because the actual issue is that the controller shouldn't exist at all."
+    },
+    {
+      "claim": "IRepository<,> is a 'write repository' and IReadOnlyRepository<,> should be used for reads",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Generally true ABP guidance, but here it's offered as a defect in code the assertion expects the responder to call correct — so this advice is off-target for the current eval."
+    },
+    {
+      "claim": "Use AddHttpClientProxies on the consumer side",
+      "type": "process",
+      "verified": true,
+      "evidence": "Correct ABP pattern for cross-process consumption."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Explains that ABP wires the integration-service HTTP exposure implicitly...",
+        "reason": "This response shows the discriminating value of this assertion well — it correctly tells the user to delete the controller but for the wrong mechanism. The assertion catches that. Worth keeping the specific mechanism names (ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices / /integration-api) in the rubric."
+      }
+    ],
+    "overall": "Assertions caught a meaningful gap between 'sounds plausible' and 'mechanically correct'."
+  }
+}

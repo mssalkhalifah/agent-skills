@@ -1,0 +1,89 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": true,
+      "evidence": "Opening paragraph: \"don't extend the host's `DbContext` — give Billing its own, with its own migrations, its own design-time factory, its own schema migrator\". Section 2 defines a concrete `BillingDbContext : AbpDbContext<BillingDbContext>, IBillingDbContext`. Trap #1 explicitly warns against \"Sharing the host's DbContext\"."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module — explicitly something like __EFMigrationsHistory_Billing — and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": true,
+      "evidence": "BillingDbProperties defines `MigrationsHistoryTable = \"__EFMigrationsHistory_Billing\"`. Section 4 wires it via `c.UseNpgsql(b => b.MigrationsHistoryTable(BillingDbProperties.MigrationsHistoryTable))`. Rationale provided: \"every time the host boots, EF reads `__EFMigrationsHistory`, sees the *other* modules' migrations as 'missing', and tries to re-apply them — bricking the database in dev and panic-rolling-back in prod.\" Reinforced again at end of Section 4."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "Section 5 provides full `BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>` implementation with `CreateDbContext(string[] args)`. Explanation: \"`dotnet ef migrations add` cannot boot the full ABP module graph; it needs an `IDesignTimeDbContextFactory<BillingDbContext>` that constructs the context from a hand-rolled configuration. Without this file, `dotnet ef migrations add` will fail or fall back to host-level discovery\". Sample CLI command included."
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": true,
+      "evidence": "Section 6 defines `IBillingDbSchemaMigrator` in `Acme.Billing.Domain/Data/`. Section 7 implements `EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency` calling `_serviceProvider.GetRequiredService<BillingDbContext>().Database.MigrateAsync()`. Explanation: host's `DbMigrationService` resolves all `IXxxDbSchemaMigrator` instances and calls `MigrateAsync` on each."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) — i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "Module file uses `[DependsOn(typeof(AbpEntityFrameworkCorePostgreSqlModule))]` with comment `// ← Postgres provider, not SqlServer`. Both runtime registration (Section 4) and design-time factory (Section 5) call `UseNpgsql(...)`. Postgres-specific concerns addressed: `Npgsql.EnableLegacyTimestampBehavior` switch, connection strings shown with `Host=localhost;Port=5432;...`, and `DbSchema = null` rationale (\"PostgreSQL — keep null unless you genuinely need a schema\")."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "AbpDbContext<BillingDbContext> wires Billing into ABP's UoW pipeline, audit-property setter, soft-delete filter, multi-tenancy filter, and entity change events",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Accurate description of AbpDbContext<TDbContext> base class behavior; correctly chosen over plain DbContext."
+    },
+    {
+      "claim": "ConfigureByConvention() is required for soft-delete, audit columns, multi-tenancy filtering, ExtraProperties, and concurrency stamps",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP's documented model-building extension behavior — `ConfigureByConvention` applies the framework conventions for these cross-cutting concerns."
+    },
+    {
+      "claim": "Uses options.AddDefaultRepositories(includeAllEntities: true) inside AddAbpDbContext — the correct ABP DI registration pattern",
+      "type": "process",
+      "verified": true,
+      "evidence": "Correctly uses `context.Services.AddAbpDbContext<BillingDbContext>(...)` rather than the generic `AddDbContext`. No drift toward Microsoft.Extensions.DependencyInjection competitor patterns."
+    },
+    {
+      "claim": "No NoTracking-by-default configuration is recommended in the DbContext",
+      "type": "process",
+      "verified": true,
+      "evidence": "Response does not advocate `QueryTrackingBehavior.NoTracking` at the DbContext level — correctly avoids conflict with ABP's UoW pipeline (which depends on tracking for change detection, audit, and outbox)."
+    },
+    {
+      "claim": "Npgsql.EnableLegacyTimestampBehavior must be set in both runtime PreConfigureServices and the design-time factory",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Correct guidance for Npgsql 6+ when ABP audit DateTime columns are used (Kind=Unspecified). Both call sites genuinely need it because they're independent process boots."
+    },
+    {
+      "claim": "ITransientDependency on the schema migrator allows the host's DbMigrationService to discover it automatically",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Correct — ABP's DbMigrationService resolves all `I*DbSchemaMigrator` implementations from the container; convention-based registration via marker interfaces is the standard ABP pattern."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No drift detected toward (a) AddDbContext over AddAbpDbContext, (b) NoTracking-by-default, or (c) skipping the unique-history-table requirement. The competitor skills (efcore-patterns, microsoft-extensions-dependency-injection) did not contaminate the answer — ABP-specific guidance dominated correctly."
+      },
+      {
+        "assertion": "Wires the DbContext with the PostgreSQL provider (UseNpgsql)",
+        "reason": "Could be strengthened by also asserting that `AbpEntityFrameworkCorePostgreSqlModule` is added to `[DependsOn(...)]` — UseNpgsql alone in the lambda would compile without referencing the ABP-Postgres module, but the convention is to depend on it. The current response satisfies both, but a weaker response could pass the assertion while omitting the DependsOn entry."
+      },
+      {
+        "assertion": "Includes a per-module schema migrator",
+        "reason": "Could explicitly check that the interface lives in the Domain (or Domain.Shared) project — placement matters for the layered convention (Domain stays provider-agnostic). Current response correctly puts `IBillingDbSchemaMigrator` in `Acme.Billing.Domain/Data/`, but the assertion as written would also pass if the interface were in the EF Core project."
+      }
+    ],
+    "overall": "Strong, discriminating eval. All five assertions covered load-bearing aspects of per-module DbContext setup. Response demonstrates genuine ABP fluency — no competitor-skill drift observed."
+  }
+}

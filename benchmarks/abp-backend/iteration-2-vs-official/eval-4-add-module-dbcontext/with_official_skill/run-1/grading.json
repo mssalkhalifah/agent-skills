@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": true,
+      "evidence": "Each module owns its own DbContext and its own EF Core migrations history table. Do NOT share a DbContext across modules; entire section 'Why each module needs its own DbContext' and warnings table."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": true,
+      "evidence": "b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\", BillingDbProperties.DbSchema)... All modules write to the same __EFMigrationsHistory. EF then sees 'unknown migrations' from the other modules and tries to apply yours on top, often producing duplicate-table errors in Postgres."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>... 'so dotnet ef migrations add works when run from the module's EF Core project without referencing the host.'"
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": true,
+      "evidence": "public interface IBillingDbSchemaMigrator { Task MigrateAsync(); } and class EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency calling BillingDbContext.Database.MigrateAsync()."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "c.UseNpgsql(b => { b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\", ...); b.MigrationsAssembly(...); }); plus AbpEntityFrameworkCorePostgreSqlModule dependency; mentions numeric/jsonb."
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

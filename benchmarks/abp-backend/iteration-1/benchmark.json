@@ -1,0 +1,712 @@
+{
+  "metadata": {
+    "skill_name": "abp-backend",
+    "skill_path": "/Users/moalkhalifah-bpo/Development/deep-research/.claude/skills/abp-backend",
+    "executor_model": "claude-opus-4-7[1m]",
+    "analyzer_model": "claude-opus-4-7[1m]",
+    "timestamp": "2026-05-10T14:28:51Z",
+    "evals_run": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "runs_per_configuration": 1,
+    "assertion_revision": "tightened-v2"
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "eval_name": "manager-injects-tracking-repo",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 68.8,
+        "tokens": 34748,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+          "passed": true,
+          "evidence": "Section '1. Domain services must not persist (Rule 3)': 'It must never call InsertAsync / UpdateAsync / DeleteAsync... Your CreateAsync calls _orderRepository.InsertAsync(order, autoSave: true) and ChangePriceAsync calls _orderRepository.UpdateAsync(order). Both are forbidden in a domain service.'"
+        },
+        {
+          "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+          "passed": true,
+          "evidence": "Corrected manager declares 'private readonly IReadOnlyRepository<Customer, Guid> _customerRepository;' and 'private readonly IReadOnlyRepository<Order, Guid> _orderRepository;' and the prose: 'A *Manager should inject IReadOnlyRepository<T, TKey> for every repository it needs'"
+        },
+        {
+          "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+          "passed": true,
+          "evidence": "'public Task ChangePriceAsync(Order order, decimal newPrice) { order.SetPrice(newPrice); return Task.CompletedTask; }' \u2014 entity is passed in, no GetAsync inside the manager"
+        },
+        {
+          "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+          "passed": true,
+          "evidence": "'return new Order(id, customerId, number); // Manager does NOT persist' inside CreateAsync"
+        },
+        {
+          "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+          "passed": true,
+          "evidence": "OrderAppService has 'private readonly IRepository<Order, Guid> _orderRepository; // tracking repo lives HERE', mints id via 'GuidGenerator.Create()', calls '_orderManager.CreateAsync(...)' and '_orderManager.ChangePriceAsync(order, newPrice)', and persists via '_orderRepository.InsertAsync(order)' and '_orderRepository.UpdateAsync(order)'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "manager-injects-tracking-repo",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.0,
+        "passed": 0,
+        "failed": 5,
+        "total": 5,
+        "time_seconds": 74.5,
+        "tokens": 22375,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+          "passed": false,
+          "evidence": "Response argues the opposite \u2014 under '5. UpdateAsync is redundant under EF Core' it calls UpdateAsync 'a no-op for a tracked entity... not wrong' and the corrected Manager still calls '_orderRepository.InsertAsync(order, ...)' inside CreateAsync. There is no statement that domain services must not persist."
+        },
+        {
+          "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+          "passed": false,
+          "evidence": "Only a passing mention for Customer ('consider IReadOnlyRepository<Customer, Guid>') and the corrected manager keeps 'private readonly IRepository<Order, Guid> _orderRepository;' and 'private readonly IRepository<Customer, Guid> _customerRepository;'. No recommendation to switch Order to IReadOnlyRepository."
+        },
+        {
+          "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+          "passed": false,
+          "evidence": "Corrected ChangePriceAsync still loads the order inside the Manager: 'var order = await _orderRepository.GetAsync(orderId, cancellationToken: cancellationToken);' \u2014 Order is not received as a parameter."
+        },
+        {
+          "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+          "passed": false,
+          "evidence": "Corrected CreateAsync ends with 'return await _orderRepository.InsertAsync(order, cancellationToken: cancellationToken);' \u2014 InsertAsync still called inside the Manager."
+        },
+        {
+          "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+          "passed": false,
+          "evidence": "No OrderAppService is shown. Only OrderManager, Order entity, and SalesDomainErrorCodes are presented."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "appservice-uses-iqueryable",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 65.3,
+        "tokens": 52040,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+          "passed": true,
+          "evidence": "Response opens with 'Your OrderAppService calls _orderRepository.GetQueryableAsync() and then composes a LINQ query (Where / OrderByDescending / Skip / Take) directly inside the application service. That violates the framework guardrail that application services must not consume IQueryable'."
+        },
+        {
+          "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+          "passed": true,
+          "evidence": "Section '1. Domain layer \u2014 the repository contract' shows 'public interface IOrderRepository : IRepository<Order, Guid>' with comment 'Orders/IOrderRepository.cs (in the Domain project / Domain folder)'."
+        },
+        {
+          "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+          "passed": true,
+          "evidence": "Section '2. EntityFrameworkCore layer \u2014 the implementation' defines 'public class OrderRepository : EfCoreRepository<MyAppDbContext, Order, Guid>, IOrderRepository' with the Where/OrderByDescending/Skip/Take LINQ inside, in 'Orders/OrderRepository.cs (in the EntityFrameworkCore project / Data folder)'."
+        },
+        {
+          "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+          "passed": true,
+          "evidence": "Section 4 shows the refactored OrderAppService injecting IOrderRepository and calling CountActiveForCustomerAsync + GetActiveForCustomerAsync, returning PagedResultDto<OrderDto>. Response explicitly states 'No GetQueryableAsync, no AsyncExecuter, no LINQ in the service.'"
+        },
+        {
+          "text": "Registers the custom repository through ABP's repository pipeline \u2014 e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+          "passed": true,
+          "evidence": "Section '3. Register the custom repository' shows 'context.Services.AddAbpDbContext<MyAppDbContext>(options => { options.AddDefaultRepositories(includeAllEntities: true); options.AddRepository<Order, OrderRepository>(); });' \u2014 exactly the ABP-pipeline form the tightened assertion requires. No services.AddScoped / generic IServiceCollection registration appears anywhere. The OrderRepository class also inherits EfCoreRepository<MyAppDbContext, Order, Guid>, which is the auto-registration fallback the assertion explicitly accepts."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "appservice-uses-iqueryable",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 83.9,
+        "tokens": 23039,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags that calling GetQueryableAsync (or composing IQueryable / LINQ) inside the AppService is wrong",
+          "passed": true,
+          "evidence": "Section '1. The application service is doing query construction' calls hand-rolling LINQ over IQueryable<Order> 'the biggest smell', enumerating layering and EF-leakage problems and recommending the query be pushed to a custom repository."
+        },
+        {
+          "text": "Recommends defining a custom repository interface (e.g. IOrderRepository : IRepository<Order, Guid>) in the Domain project",
+          "passed": true,
+          "evidence": "Section 'Domain layer \u2014 the custom repository interface' at 'Acme.OrdersService.Domain/Orders/IOrderRepository.cs' declares 'public interface IOrderRepository : IRepository<Order, Guid>' with GetActiveForCustomerAsync and CountActiveForCustomerAsync methods."
+        },
+        {
+          "text": "Shows the EF Core implementation of that custom repository (e.g. inheriting EfCoreRepository<...> in the EntityFrameworkCore project) where the IQueryable / LINQ logic actually lives",
+          "passed": true,
+          "evidence": "Section 'EntityFrameworkCore layer \u2014 the repository implementation' shows 'public class EfCoreOrderRepository : EfCoreRepository<OrdersServiceDbContext, Order, Guid>, IOrderRepository' with Where/OrderBy/Skip/Take/Select/ToListAsync inside."
+        },
+        {
+          "text": "Refactored AppService injects the custom repository and calls a method that returns materialised results (List<Order> / PagedResultDto / count + list), with no GetQueryableAsync call remaining",
+          "passed": true,
+          "evidence": "Section 'Application layer \u2014 the slimmed-down app service' injects IOrderRepository and calls CountActiveForCustomerAsync + GetActiveForCustomerAsync (List<OrderListItem>) into a PagedResultDto<OrderListItemDto>; no GetQueryableAsync call remains."
+        },
+        {
+          "text": "Registers the custom repository through ABP's repository pipeline \u2014 e.g. options.AddRepository<Order, OrderRepository>() inside the EF Core module's AddAbpDbContext<>() configuration, or via the auto-registration that follows from inheriting EfCoreRepository<,,> in the same EF Core project. Does NOT register via generic services.AddScoped<IOrderRepository, OrderRepository>() / IServiceCollection extension methods (an ABP-specific DI lock-in)",
+          "passed": true,
+          "evidence": "Note at line 173 says: \"ABP's AbpAutofacModule will discover this implementation and wire IOrderRepository to it; if it doesn't (older templates), register it in your *EntityFrameworkCoreModule.ConfigureServices with `context.Services.AddAbpDbContext<OrdersServiceDbContext>(opt => opt.AddRepository<Order, EfCoreOrderRepository>())` or similar. ABP 10.x should auto-register.\" This explicitly references both ABP's auto-registration via EfCoreRepository<,,> inheritance AND the AddRepository<Order, ...> form inside AddAbpDbContext \u2014 the two valid ABP pipelines. No services.AddScoped<IOrderRepository, ...> generic registration is suggested."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "cross-module-read",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.857,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 81.4,
+        "tokens": 36985,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+          "passed": true,
+          "evidence": "Opens with: \"Short answer: no \u2014 don't inject `IFormSubmissionAppService` into `ReportAppService`.\" and explains it \"couples one module's internal API to another and turns a normal client-facing app service into an unintended cross-module contract.\" Reinforced in the TL;DR."
+        },
+        {
+          "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+          "passed": true,
+          "evidence": "\"The right pattern in ABP is an **Integration Service**\" and shows `[IntegrationService]` attribute on the interface; also references `Volo.Abp.Application.Services.IntegrationServiceAttribute` in the differences table."
+        },
+        {
+          "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+          "passed": true,
+          "evidence": "File path comment: `// Acme.Forms.Application.Contracts/IntegrationServices/IFormSubmissionIntegrationService.cs` and explicitly says \"Contract goes in `Acme.Forms.Application.Contracts` (so consumers can reference just the contract assembly).\""
+        },
+        {
+          "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+          "passed": true,
+          "evidence": "File path `// Acme.Forms.Application/IntegrationServices/FormSubmissionIntegrationService.cs` with class `FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService`."
+        },
+        {
+          "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+          "passed": true,
+          "evidence": "Comment on the interface: \"hidden from /api, audit-off by default, no [Authorize] by default\" and table rows show \"Visible in default `/api` host: No\", \"Audit logging: Off by default\", \"[Authorize] expected: Typically not\"."
+        },
+        {
+          "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+          "passed": true,
+          "evidence": "Section \"In-process now, microservice later \u2014 same contract\": \"ABP's DI just resolves `IFormSubmissionIntegrationService` to the in-process `FormSubmissionIntegrationService` \u2014 no HTTP hop, no serialization\" and \"If you later split Forms and Reports into separate microservices, the `[IntegrationService]` is exposed over `/integration-api/...` behind the API gateway, and Reports consumes it via a generated proxy client. Same interface, same DI shape; only the transport changes.\""
+        },
+        {
+          "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) \u2014 NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+          "passed": false,
+          "evidence": "The response addresses csproj-level project references only \u2014 line 71: \"the consuming side just needs a project reference (or NuGet dep) on **`Acme.Forms.Application.Contracts`** ... Don't reference `Acme.Forms.Application` from Reports; the contract is enough.\" It never mentions `[DependsOn]`, `AbpModule`, or `AcmeFormsApplicationContractsModule`. Per the strict reading, mentioning project references / the contracts assembly is not enough \u2014 the contracts-only `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]` attribute on the consumer's `AcmeReportsApplicationModule` is the load-bearing wiring detail and it is absent from the response."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "cross-module-read",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 70.7,
+        "tokens": 21310,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+          "passed": true,
+          "evidence": "Opens with: \"**don't inject `IFormSubmissionAppService` into your `ReportAppService`.**\" and devotes the \"Why 'just inject the AppService' is a smell\" section to explaining why."
+        },
+        {
+          "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+          "passed": true,
+          "evidence": "Section \"1. Integration Service (recommended for this case)\" and code shows `[IntegrationService] // Volo.Abp.Application.Services.IntegrationServiceAttribute` on both the interface and implementation."
+        },
+        {
+          "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+          "passed": true,
+          "evidence": "File comment `// Acme.Forms.Application.Contracts/Integration/IFormSubmissionIntegrationService.cs` and prose: \"Define it in `Acme.Forms.Application.Contracts`\"."
+        },
+        {
+          "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+          "passed": true,
+          "evidence": "File comment `// Acme.Forms.Application/Integration/FormSubmissionIntegrationService.cs` with class `FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService` and `[IntegrationService]` attribute."
+        },
+        {
+          "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+          "passed": true,
+          "evidence": "\"Dynamic HTTP API generation **skips** it (it doesn't get auto-exposed as a controller)\", \"Auto-API-controller conventions ignore it\", \"Authorization/audit defaults are tuned for service-to-service rather than end-user calls\", and later \"It's auto-excluded from the public HTTP API\"."
+        },
+        {
+          "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+          "passed": true,
+          "evidence": "\"If you ever split Forms out into its own service, the integration service is the seam \u2014 you replace the in-process call with an HTTP/`IDistributedEventBus` implementation without touching `ReportAppService`.\" Frames same-contract/different-transport, though it conflates HTTP proxy with distributed events. Still passes since in-process DI now vs HTTP later is mentioned with the same-interface idea."
+        },
+        {
+          "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) \u2014 NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+          "passed": true,
+          "evidence": "Explicitly states: \"Module dependency wiring: `AcmeReportsApplicationModule` declares `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]`. **Do not** depend on `AcmeFormsApplicationModule` from Reports.Application \u2014 only on the contracts assembly.\" Also reiterated in the concrete recommendation: \"In `AcmeReportsApplicationModule`, `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]`\". The negative case (no DependsOn on Forms.Application) is also called out, satisfying the strict tightened criterion."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "controller-on-integration-service",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 78.5,
+        "tokens": 54580,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+          "passed": true,
+          "evidence": "Response opens with: 'the FormSubmissionIntegrationController is wrong on three counts and should be deleted entirely'. Reinforced in 'Corrected setup': 'Delete FormSubmissionIntegrationController entirely.' And in TL;DR: 'Delete the controller.'"
+        },
+        {
+          "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+          "passed": true,
+          "evidence": "Response states: 'ABP wires their HTTP exposure implicitly through the integration-services pipeline'. Names the exact mechanisms: 'flip ExposeIntegrationServices = true and register ConventionalControllers.Create(...) with ApplicationServiceTypes.IntegrationServices. ABP then materialises the controllers under the /integration-api/... prefix automatically.' Includes a full code sample showing the host-side wiring."
+        },
+        {
+          "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+          "passed": true,
+          "evidence": "Under 'What's right' section: 'The interface and the implementation are textbook.' Confirms [IntegrationService] placement on the interface, IApplicationService inheritance, and the repository usage \u2014 explicitly noting CountAsync(predicate) is materialised so it doesn't violate the no-IQueryable-leak rule."
+        },
+        {
+          "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+          "passed": true,
+          "evidence": "Section 2: 'You routed the controller at api/forms/integration/form-submissions. That puts the endpoint under /api/..., which is the public API surface... Integration services are explicitly designed for the private /integration-api/... prefix'. Section 3: 'Integration services bypass authorization by convention... Slapping [Authorize] on the controller re-enables full bearer-token requirements.' Also mentions audit being off by default ('off by default to keep audit volume sane in chatty service-to-service systems')."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "controller-on-integration-service",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.5,
+        "passed": 2,
+        "failed": 2,
+        "total": 4,
+        "time_seconds": 67.3,
+        "tokens": 21727,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+          "passed": true,
+          "evidence": "Response says explicitly: 'In short: delete the controller.' Reinforced near the end: 'And then no FormSubmissionIntegrationController \u2014 let ABP's integration-service publishing handle the HTTP surface.'"
+        },
+        {
+          "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+          "passed": false,
+          "evidence": "The response asserts the OPPOSITE of the actual ABP behavior: 'When you call ConfigureServices(options => options.ConventionalControllers.Create(typeof(YourApplicationModule).Assembly)), ABP will, by default, exclude types marked [IntegrationService].' It then claims you opt in via 'RemoteServiceName' and a vague reference to 'IntegrationServiceOptions'. It never names the actual mechanism (ExposeIntegrationServices, ApplicationServiceTypes.IntegrationServices, /integration-api prefix). The example code sample even tells the user 'tell ABP to also publish integration services' via opts.RemoteServiceName = \"Forms\" \u2014 which is wrong; RemoteServiceName has nothing to do with integration-service exposure. So while it tells the user not to write the controller, it does not correctly explain the implicit wiring mechanism."
+        },
+        {
+          "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+          "passed": false,
+          "evidence": "The response does NOT confirm them as correct. Under 'Smaller issues with the code as posted' it flags multiple problems with the implementation: 'IRepository<,> in an integration service... is a write repository. For a read-only count you should prefer IReadOnlyRepository<FormSubmission, Guid>'; 'No CancellationToken'; 'async/await vs returning the task directly'; 'Authorization is missing on the service itself'; 'Returning a primitive int' \u2014 and its 'Cleaned-up version' rewrites both the interface and the implementation (changing repository type, return type to a DTO, adds CancellationToken, adds [Authorize(...)] attribute). This contradicts the assertion that the first two blocks should be confirmed correct."
+        },
+        {
+          "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+          "passed": true,
+          "evidence": "Response says: 'integration services are deliberately not exposed over HTTP by default'; 'so that ordinary clients (Swagger consumers, the Angular/Blazor frontend...) cannot accidentally hit it. By exposing it on api/forms/integration/... with [Authorize] (just any logged-in user), you've handed it to every authenticated user of the public API surface.' Also: 'options.IsEnabledForIntegrationServices = false; // typical' addresses audit. Covers the hidden-from-public-API and audit angle."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "add-module-dbcontext",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 116.7,
+        "tokens": 56426,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+          "passed": true,
+          "evidence": "Section 2 defines `public class BillingDbContext : AbpDbContext<BillingDbContext>, IBillingDbContext` owned by the Billing module. The opening rule statement: 'Rule 6: each module owns its own DbContext, its own EF Core migrations folder, its own IXxxDbSchemaMigrator, and crucially its own EF migrations history table.' The host wiring (section 8) only adds `[DependsOn(typeof(BillingEntityFrameworkCoreModule))]` and does NOT extend the host's DbContext to own Billing entities."
+        },
+        {
+          "text": "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+          "passed": true,
+          "evidence": "Opening paragraph explicitly explains: 'If you skip the history-table piece, EF reads the default __EFMigrationsHistory for the Billing module, sees the other two modules' migration rows there, decides those are missing Billing migrations, and tries to re-apply them on the next startup. Don't share that table.' Section 4 shows `b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\", BillingDbProperties.DbSchema)` and section 9 elaborates with three side-by-side history tables."
+        },
+        {
+          "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+          "passed": true,
+          "evidence": "Section 5 ('Design-time DbContextFactory (mandatory)') shows `public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>` with full implementation, and explains: 'Without this, `dotnet ef migrations add` cannot construct the DbContext \u2014 the production graph (the host with all modules) is too heavy for tooling to boot.'"
+        },
+        {
+          "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+          "passed": true,
+          "evidence": "Section 6 ('Schema migrator (per Rule 6)') defines `public interface IBillingDbSchemaMigrator { Task MigrateAsync(); }` and `public class EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency` whose `MigrateAsync()` resolves `BillingDbContext` and calls `.Database.MigrateAsync()`."
+        },
+        {
+          "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+          "passed": true,
+          "evidence": "Section 4 uses `c.UseNpgsql(b => { b.MigrationsHistoryTable(...); ... })` with `AbpEntityFrameworkCorePostgreSqlModule` in [DependsOn]. Section 5 factory uses `.UseNpgsql(...)`. PostgreSQL connection strings (`Host=localhost;Port=5432;...`) appear in section 8. Mentions `Npgsql.EnableLegacyTimestampBehavior` switch \u2014 Postgres-specific."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "add-module-dbcontext",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.4,
+        "passed": 2,
+        "failed": 3,
+        "total": 5,
+        "time_seconds": 90.1,
+        "tokens": 24400,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+          "passed": false,
+          "evidence": "The response explicitly recommends EXTENDING the host's existing DbContext to own Billing entities. Section 7 is titled 'Host project: extend the host DbContext to also own Billing entities' and has the host `MyAppDbContext` implement `IBillingDbContext` with `[ReplaceDbContext(typeof(IBillingDbContext))]` and `builder.ConfigureBilling()` in OnModelCreating. Section 4 explicitly states: 'this DbContext is only used at design time ... At runtime the host app uses the host DbContext.' Section 10 says 'one physical migration history table (`__EFMigrationsHistory`) \u2014 owned by the host context.' This is the opposite of the per-module ownership the assertion requires."
+        },
+        {
+          "text": "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+          "passed": false,
+          "evidence": "The response never mentions a unique migrations history table per module. Instead, section 10 explicitly states: 'Because there is exactly one physical migration history table (`__EFMigrationsHistory`) \u2014 owned by the host context \u2014 there is no possibility of conflict between modules.' This contradicts the assertion. The DbTablePrefix `Bil` is for module-owned data tables, NOT the EF migrations history table \u2014 those are different things. The architecture chosen (single host DbContext owning all entities) eliminates the issue rather than addressing the per-module-history-table pattern the prompt expects."
+        },
+        {
+          "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+          "passed": true,
+          "evidence": "Section 9 ('Module-side migrations (design-time only)') shows `public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>` with full CreateDbContext implementation, and notes it is for `dotnet ef migrations add` ('To create the module's own migration: dotnet ef migrations add Initial_Billing_Migration'). Marked as design-time only."
+        },
+        {
+          "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+          "passed": false,
+          "evidence": "No `IBillingDbSchemaMigrator` interface and no `EntityFrameworkCoreBillingDbSchemaMigrator` implementation appear anywhere in the response. The response defers all migration execution to the host's `DbMigrator` console app applying host migrations, with no per-module schema migrator pattern shown."
+        },
+        {
+          "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+          "passed": true,
+          "evidence": "Section 8 calls `ctx.UseNpgsql();` on the host EF module. Section 9 design-time factory uses `.UseNpgsql(configuration.GetConnectionString(\"Billing\") ?? configuration.GetConnectionString(\"Default\"));`. Connection string in section 11 is PostgreSQL-shaped (`Host=localhost;Port=5432;Database=MyApp;Username=postgres`). Comments label PostgreSQL behavior (e.g., 'PostgreSQL: leave null, default schema public')."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 5,
+      "eval_name": "controller-injecting-repo",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 64.0,
+        "tokens": 38700,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+          "passed": true,
+          "evidence": "Response opens: 'an explicit controller that is a thin HTTP adapter and an application service that owns all orchestration ... the controller injects only that interface and delegates each action with a one-liner.' The 'Corrected shape' shows OrderAppService.CreateAsync owning the manager call, InsertAsync, and ObjectMapper.Map, while the controller delegates with `=> _orderAppService.CreateAsync(input);`."
+        },
+        {
+          "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+          "passed": true,
+          "evidence": "Section 1 'The controller injects collaborators it shouldn't have' lists IRepository<Order, Guid>, OrderManager, IObjectMapper, and ICurrentUser as belonging on the application service, and states the rule: 'inject exactly one collaborator \u2014 IXxxAppService.' Corrected controller has only `private readonly IOrderAppService _orderAppService;`."
+        },
+        {
+          "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) \u2014 NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+          "passed": true,
+          "evidence": "Response uses `[Authorize(OrdersPermissions.Orders.Create)]` \u2014 a permission constant, not a role string and not bare [Authorize]. The 'note on the role check' is explicit: 'Define an OrdersPermissions.Orders.Create permission in the module's *PermissionDefinitionProvider, grant it to the sales role at seeding/admin time, and decorate the application service method with [Authorize(OrdersPermissions.Orders.Create)]. ... This decouples the rule from a hard-coded role string and routes through ABP's permission system.'"
+        },
+        {
+          "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) \u2014 no business logic in the controller",
+          "passed": true,
+          "evidence": "Corrected controller action is the expression-bodied one-liner `public Task<OrderDto> CreateAsync(CreateOrderDto input) => _orderAppService.CreateAsync(input);` with no business logic remaining in the controller."
+        },
+        {
+          "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer \u2014 on the AppService class or the CreateAsync method itself \u2014 NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+          "passed": true,
+          "evidence": "The corrected OrderAppService is decorated at the class level with `[Authorize(OrdersPermissions.Orders.Create)]` immediately above `public class OrderAppService : ApplicationService, IOrderAppService`. The controller carries only `[Authorize]` (authenticated). The note section reinforces: 'decorate the application service method with [Authorize(OrdersPermissions.Orders.Create)]. The controller stays at [Authorize] (authenticated). ... routes through ABP's permission system, which is what other callers (background jobs, integration services, tests) will also respect.'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 5,
+      "eval_name": "controller-injecting-repo",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 66.6,
+        "tokens": 21749,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends moving the orchestration (manager call + persist + map) out of the controller and into an OrderAppService that the controller delegates to",
+          "passed": true,
+          "evidence": "Section 1 explicitly recommends writing an `OrderAppService : ApplicationService, IOrderAppService` and exposing it via `ConfigureConventionalControllers` so the auto-API replaces the hand-written controller. The corrected `OrderAppService.CreateAsync` contains the manager call, `InsertAsync`, and `ObjectMapper.Map`. TL;DR: 'Move the logic to an OrderAppService; delete the controller.' Auto-API removal is an accepted equivalent of a delegating thin controller."
+        },
+        {
+          "text": "States the controller should inject only the application-service interface (e.g. IOrderAppService) and that injecting IRepository / OrderManager / IObjectMapper / ICurrentUser into a controller is wrong",
+          "passed": true,
+          "evidence": "Section 2: 'Controllers live in the presentation/HTTP layer and should depend on the application layer (IOrderAppService), not on domain services or repositories.' Fallback custom-controller guidance: 'the controller should still call into an application service, not the repository or the manager directly.' The response also notes `IObjectMapper`/`ICurrentUser` shouldn't be injected (inherited from `AbpController`)."
+        },
+        {
+          "text": "Replaces the imperative _currentUser.IsInRole(\"sales\") check with declarative [Authorize(...)] referencing an ABP permission constant (e.g. [Authorize(OrderPermissions.Create)] or similar) \u2014 NOT [Authorize(Roles=\"sales\")] (role strings) and NOT a bare [Authorize] without a policy/permission",
+          "passed": true,
+          "evidence": "Section 3: 'Use permissions, not role checks. Role names are deployment data; permissions are part of your design. Define `OrderPermissions.Create` in your `*.Application.Contracts` project, register it in your `PermissionDefinitionProvider`, grant it to the `sales` role at seed time, then decorate the method with `[Authorize(OrderPermissions.Create)]`.' The corrected AppService snippet (lines 86, 100) shows `[Authorize(OrderPermissions.Default)]` on the class and `[Authorize(OrderPermissions.Create)]` on CreateAsync \u2014 permission constants, not role strings, not a bare [Authorize]."
+        },
+        {
+          "text": "Shows the corrected action body as a single delegating expression to the AppService (or a one-liner equivalent) \u2014 no business logic in the controller",
+          "passed": true,
+          "evidence": "The response advocates removing the controller entirely via auto-API ('No controller needed \u2014 `ConfigureConventionalControllers` ... auto-exposes `IOrderAppService` as `POST /api/app/order`'). All orchestration (manager call, InsertAsync, Map) is moved into `OrderAppService.CreateAsync`. No business logic remains in any controller. Auto-API removal is accepted as equivalent to a one-line delegating action."
+        },
+        {
+          "text": "Applies [Authorize(OrderPermissions.Create)] (or equivalent permission-based attribute) at the application-service layer \u2014 on the AppService class or the CreateAsync method itself \u2014 NOT only on the controller. The AppService is the canonical authz boundary in ABP because other callers (background jobs, integration services, event handlers) routing through the AppService also get the check",
+          "passed": true,
+          "evidence": "The corrected AppService snippet (lines 86-101) places `[Authorize(OrderPermissions.Default)]` on the `OrderAppService` class and `[Authorize(OrderPermissions.Create)]` directly on the `CreateAsync` method. Authorization is enforced at the AppService layer, satisfying the requirement that the AppService be the authz boundary regardless of caller (HTTP, background job, event handler)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "eval_name": "businessexception-in-appservice",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 70.1,
+        "tokens": 44753,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+          "passed": true,
+          "evidence": "Section 2 explicitly states: 'The remaining BusinessException throws don't belong in the application service' and 'invariants live where they're enforced - in the entity, an entity behavior method, or a domain service (*Manager)'. Section 1 separately calls out input validation as belonging to the validation pipeline, not hand-thrown exceptions."
+        },
+        {
+          "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation \u2014 i.e. routes them through ABP's validation pipeline",
+          "passed": true,
+          "evidence": "Cleaned-up CreateOrderDto shows '[Required]' and '[StringLength(32)]' on Number, with explicit explanation that 'DataAnnotationObjectValidationContributor' picks them up and the framework throws AbpValidationException before the method body runs."
+        },
+        {
+          "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept \u2014 a *Manager / domain service (or onto the entity) \u2014 not the AppService",
+          "passed": true,
+          "evidence": "OrderManager : DomainService is shown with the uniqueness check moved inside its CreateAsync method: 'if (await _orderRepository.AnyAsync(o => o.Number == number)) throw new BusinessException(\"Sales:OrderNumberAlreadyExists\");'. Section 2 explicitly says 'Order-number uniqueness \u2192 an OrderManager (domain service)'."
+        },
+        {
+          "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager \u2014 not the AppService",
+          "passed": true,
+          "evidence": "Customer entity is shown with an EnsureCanReceiveNewOrder() method that throws BusinessException(\"Sales:CustomerIsBlocked\") when IsBlocked is true. The OrderManager calls customer.EnsureCanReceiveNewOrder() before constructing the Order."
+        },
+        {
+          "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+          "passed": true,
+          "evidence": "Final OrderAppService.CreateAsync body is purely orchestration: calls _orderManager.CreateAsync, then _orderRepository.InsertAsync, then ObjectMapper.Map \u2014 no throw statements. Concluding line: 'After this refactor, OrderAppService.CreateAsync is three lines of orchestration'."
+        },
+        {
+          "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method \u2014 keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+          "passed": true,
+          "evidence": "All three domain-rule violations are signalled via throws from the proper layer: (1) uniqueness \u2014 OrderManager.CreateAsync contains 'throw new BusinessException(\"Sales:OrderNumberAlreadyExists\")'; (2) IsBlocked \u2014 Customer entity-behavior method EnsureCanReceiveNewOrder() contains 'throw new BusinessException(\"Sales:CustomerIsBlocked\")'; (3) customer-not-found \u2014 handled by '_customerRepository.GetAsync(customerId)' which the response explicitly notes 'throws EntityNotFoundException'. The response keeps ABP's exception-based error model \u2014 no Result<T,E>, Either, or discriminated-union return types are introduced anywhere; OrderManager.CreateAsync returns a plain Order. No throws are swallowed; the final note even reinforces 'if CustomerNotFound is genuinely a business condition for you (not just \"wrong id, 404\"), keep the explicit BusinessException throw \u2014 but still inside the OrderManager'."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "eval_name": "businessexception-in-appservice",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 59.6,
+        "tokens": 21790,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+          "passed": true,
+          "evidence": "Opening section: 'Validation vs. business rules are mixed together and both expressed as raw BusinessException. Input validation belongs on the DTO; business rules belong in the domain.' and 'The application service is doing domain work... an application service should orchestrate \u2014 not enforce invariants.'"
+        },
+        {
+          "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation \u2014 i.e. routes them through ABP's validation pipeline",
+          "passed": true,
+          "evidence": "Section 1 'Move primitive input validation to the DTO' shows CreateOrderDto with [Required] and [StringLength(OrderConsts.MaxNumberLength)] on Number, and notes ABP runs data annotations / FluentValidation automatically yielding AbpValidationException."
+        },
+        {
+          "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept \u2014 a *Manager / domain service (or onto the entity) \u2014 not the AppService",
+          "passed": true,
+          "evidence": "Section 4 introduces OrderManager : DomainService with the uniqueness check moved into it: 'if (await _orderRepository.NumberExistsAsync(number)) throw new BusinessException(SalesDomainErrorCodes.OrderNumberAlreadyExists)'. Also introduces IOrderRepository.NumberExistsAsync for the query as a domain concept."
+        },
+        {
+          "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager \u2014 not the AppService",
+          "passed": true,
+          "evidence": "Section 4's OrderManager.CreateAsync includes 'if (customer.IsBlocked) throw new BusinessException(SalesDomainErrorCodes.CustomerIsBlocked).WithData(\"CustomerId\", customer.Id);' \u2014 the guard now lives in the OrderManager, not the AppService."
+        },
+        {
+          "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+          "passed": true,
+          "evidence": "Section 5 'Slim app service' shows the final OrderAppService.CreateAsync containing only GetAsync, _orderManager.CreateAsync, _orderRepository.InsertAsync, and ObjectMapper.Map \u2014 no throw new BusinessException statements remain in the service."
+        },
+        {
+          "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method \u2014 keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+          "passed": true,
+          "evidence": "All three domain-rule violations remain exception-based and live in the appropriate non-AppService layer: (1) Uniqueness \u2014 OrderManager.CreateAsync throws 'new BusinessException(SalesDomainErrorCodes.OrderNumberAlreadyExists).WithData(\"Number\", number)'. (2) IsBlocked \u2014 OrderManager.CreateAsync throws 'new BusinessException(SalesDomainErrorCodes.CustomerIsBlocked).WithData(\"CustomerId\", customer.Id)'. (3) Customer-not-found \u2014 handled by '_customerRepository.GetAsync(input.CustomerId)', and the response explicitly notes 'IRepository<T,TKey>.GetAsync(id) already throws EntityNotFoundException (which ABP maps to HTTP 404)'. OrderManager.CreateAsync return type is Task<Order>, not Result<Order,Error> / Either / discriminated union. No try/catch swallowing anywhere; the guidance to add Check.NotNullOrWhiteSpace inside the Order constructor further reinforces throw-based invariants."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.9796,
+        "stddev": 0.054,
+        "min": 0.857,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 77.8286,
+        "stddev": 18.3195,
+        "min": 64.0,
+        "max": 116.7
+      },
+      "tokens": {
+        "mean": 45461.7143,
+        "stddev": 8939.5559,
+        "min": 34748,
+        "max": 56426
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.7,
+        "stddev": 0.4041,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 73.2429,
+        "stddev": 10.5779,
+        "min": 59.6,
+        "max": 90.1
+      },
+      "tokens": {
+        "mean": 22341.4286,
+        "stddev": 1066.2912,
+        "min": 21310,
+        "max": 24400
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.28",
+      "time_seconds": "+4.6",
+      "tokens": "+23120"
+    }
+  },
+  "notes": [
+    "REGRADED against tightened assertion bar (37 total assertions across 7 evals, was 33). 4 evals had assertions tightened or added: appservice-uses-iqueryable (+1: ABP-specific repo registration), cross-module-read (+1: contracts-only [DependsOn]), controller-injecting-repo (+1: permission-based [Authorize] on AppService; tightened existing to forbid role-string), businessexception-in-appservice (+1: BusinessException not Result<T,E>).",
+    "iter-1 with_skill (solo) score moved 33/33 -> 36/37 (97.3%). The single regression: cross-module-read response only mentioned project-level references ('don't reference Acme.Forms.Application from Reports') without naming the [DependsOn(typeof(AcmeFormsApplicationContractsModule))] AbpModule wiring. The tightened assertion correctly catches this gap.",
+    "iter-1 without_skill (baseline) score moved 23/33 -> 27/37 (73.0%). The four 'tied' evals from the previous round retained their full marks under the tighter bar, so the lift the skill provides remains concentrated on the same 3 evals that differentiated before.",
+    "Surprising: iter-1.5 (with 5 competing dotnet-skills loaded) scored 37/37 \u2014 perfectly clean \u2014 while iter-1 solo with_skill missed the [DependsOn] detail. Likely cause: competitor skills like csharp-api-design framing API contract stability nudged the response toward fuller module-wiring detail. The skill is robust enough that adding pressure didn't break it; in this one case the pressure incidentally helped by shifting attention to wiring.",
+    "Action item for iter-2: the abp-backend skill's framework/api-development.md reference (or the Rule 5 block) should explicitly call out the [DependsOn] contracts-only wiring as a load-bearing detail, not just the project-reference rule. That's the gap the tightened assertion exposed."
+  ]
+}

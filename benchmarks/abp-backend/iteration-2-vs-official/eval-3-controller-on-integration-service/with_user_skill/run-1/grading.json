@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "DELETE `FormSubmissionIntegrationController` from `Acme.Forms.HttpApi`. Do not replace it with anything. The whole file goes."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP wires their HTTP exposure implicitly through the integration-services pipeline ... exposed automatically under the dedicated `/integration-api/...` route prefix ... `options.ExposeIntegrationServices = true;`"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "The first two blocks (interface in `*.Application.Contracts`, implementation in `*.Application`) match Rule 5 exactly ... keep blocks 1 and 2 as-is."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "They are hidden from the public API surface, audit-off by default, and have no `[Authorize]` by default. Hand-writing `[Authorize]` plus `[Route(\"api/forms/integration/form-submissions\")]` puts the endpoint on the *public* `/api` surface ... exactly the opposite of what `[IntegrationService]` is for."
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "expectations": [
+    {
+      "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+      "passed": true,
+      "evidence": "Section 2 explicitly states: 'The remaining BusinessException throws don't belong in the application service' and 'invariants live where they're enforced - in the entity, an entity behavior method, or a domain service (*Manager)'. Section 1 separately calls out input validation as belonging to the validation pipeline, not hand-thrown exceptions."
+    },
+    {
+      "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation — i.e. routes them through ABP's validation pipeline",
+      "passed": true,
+      "evidence": "Cleaned-up CreateOrderDto shows '[Required]' and '[StringLength(32)]' on Number, with explicit explanation that 'DataAnnotationObjectValidationContributor' picks them up and the framework throws AbpValidationException before the method body runs."
+    },
+    {
+      "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept — a *Manager / domain service (or onto the entity) — not the AppService",
+      "passed": true,
+      "evidence": "OrderManager : DomainService is shown with the uniqueness check moved inside its CreateAsync method: 'if (await _orderRepository.AnyAsync(o => o.Number == number)) throw new BusinessException(\"Sales:OrderNumberAlreadyExists\");'. Section 2 explicitly says 'Order-number uniqueness → an OrderManager (domain service)'."
+    },
+    {
+      "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager — not the AppService",
+      "passed": true,
+      "evidence": "Customer entity is shown with an EnsureCanReceiveNewOrder() method that throws BusinessException(\"Sales:CustomerIsBlocked\") when IsBlocked is true. The OrderManager calls customer.EnsureCanReceiveNewOrder() before constructing the Order."
+    },
+    {
+      "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+      "passed": true,
+      "evidence": "Final OrderAppService.CreateAsync body is purely orchestration: calls _orderManager.CreateAsync, then _orderRepository.InsertAsync, then ObjectMapper.Map — no throw statements. Concluding line: 'After this refactor, OrderAppService.CreateAsync is three lines of orchestration'."
+    },
+    {
+      "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method — keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+      "passed": true,
+      "evidence": "All three domain-rule violations are signalled via throws from the proper layer: (1) uniqueness — OrderManager.CreateAsync contains 'throw new BusinessException(\"Sales:OrderNumberAlreadyExists\")'; (2) IsBlocked — Customer entity-behavior method EnsureCanReceiveNewOrder() contains 'throw new BusinessException(\"Sales:CustomerIsBlocked\")'; (3) customer-not-found — handled by '_customerRepository.GetAsync(customerId)' which the response explicitly notes 'throws EntityNotFoundException'. The response keeps ABP's exception-based error model — no Result<T,E>, Either, or discriminated-union return types are introduced anywhere; OrderManager.CreateAsync returns a plain Order. No throws are swallowed; the final note even reinforces 'if CustomerNotFound is genuinely a business condition for you (not just \"wrong id, 404\"), keep the explicit BusinessException throw — but still inside the OrderManager'."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "ApplicationService implements IValidationEnabled, so DataAnnotations work automatically provided the method is virtual (or invoked through the interface)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ApplicationService does implement IValidationEnabled in ABP and validation interception requires DynamicProxy to intercept; the 'virtual or interface' caveat is accurate for Castle DynamicProxy."
+    },
+    {
+      "claim": "BusinessException maps to HTTP 403 by default",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's exception filter does map BusinessException to 403 by default unless a specific HttpStatusCode is configured; this matches the documented behavior."
+    },
+    {
+      "claim": "GetAsync throws EntityNotFoundException which maps to HTTP 404",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Standard ABP behavior — IRepository<T,TKey>.GetAsync throws EntityNotFoundException which the framework maps to 404."
+    },
+    {
+      "claim": "OrderManager returns the new Order rather than persisting it; persistence stays in the app service",
+      "type": "process",
+      "verified": true,
+      "evidence": "OrderManager.CreateAsync returns 'new Order(id, customerId, number)' without calling InsertAsync; the OrderAppService then performs InsertAsync. Comment in code reinforces 'returned, NOT persisted'."
+    }
+  ],
+  "eval_feedback": {
+    "overall": "Assertions are well-targeted and discriminating; the tightened 6th assertion specifically guards against functional-pattern substitutions and silent swallowing, and this answer cleanly preserves ABP's throw-based error model across all three rule violations."
+  }
+}

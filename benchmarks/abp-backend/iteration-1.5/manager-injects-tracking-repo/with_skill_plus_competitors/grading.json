@@ -1,0 +1,72 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+      "passed": true,
+      "evidence": "Section '1. The Manager persists. It must not.' explicitly cites 'CreateAsync calls _orderRepository.InsertAsync(order, autoSave: true) and ChangePriceAsync calls _orderRepository.UpdateAsync(order). Both are forbidden in a *Manager. Domain services own invariants and pure logic; the application service orchestrates persistence.'"
+    },
+    {
+      "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+      "passed": true,
+      "evidence": "Section 2 says '*Manager reads should go through IReadOnlyRepository<TEntity, TKey>'. Corrected OrderManager declares 'private readonly IReadOnlyRepository<Customer, Guid> _customerRepository;' and 'private readonly IReadOnlyRepository<Order, Guid> _orderRepository;' with matching constructor parameters."
+    },
+    {
+      "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+      "passed": true,
+      "evidence": "Corrected Manager: 'public Task ChangePriceAsync(Order order, decimal newPrice) { ArgumentNullException.ThrowIfNull(order); order.SetPrice(newPrice); return Task.CompletedTask; }' — Order arrives as a parameter, no GetAsync inside the Manager. Section 3 explicitly explains the entity-by-parameter pattern."
+    },
+    {
+      "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+      "passed": true,
+      "evidence": "Corrected Manager's CreateAsync ends with 'return new Order(id, customerId, number);                      // Manager does NOT persist' — no InsertAsync call in the Manager."
+    },
+    {
+      "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+      "passed": true,
+      "evidence": "OrderAppService injects 'IRepository<Order, Guid> _orderRepository' (commented '// tracking lives HERE'), CreateAsync calls '_orderManager.CreateAsync(GuidGenerator.Create(), input.CustomerId, input.Number)' then 'await _orderRepository.InsertAsync(order, autoSave: true)'. ChangePriceAsync does '_orderRepository.GetAsync(id)', '_orderManager.ChangePriceAsync(order, newPrice)', then '_orderRepository.UpdateAsync(order)'."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "claims": [
+    {
+      "claim": "DomainService base class exposes GuidGenerator just like ApplicationService does",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Both Volo.Abp.Domain.Services.DomainService and Volo.Abp.Application.Services.ApplicationService expose GuidGenerator via property injection in ABP — accurate."
+    },
+    {
+      "claim": "IReadOnlyRepository is no-tracking by default",
+      "type": "factual",
+      "verified": true,
+      "evidence": "ABP's IReadOnlyRepository<TEntity, TKey> defaults to non-tracking queries in EF Core — consistent with ABP documentation."
+    },
+    {
+      "claim": "The internal constructor on Order forces callers in other assemblies to go through OrderManager",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Standard C# accessibility behavior — internal restricts construction to the Domain assembly where OrderManager lives. Correct claim, well motivated."
+    },
+    {
+      "claim": "newPrice <= 0 is a state-shape rule that belongs on the entity",
+      "type": "quality",
+      "verified": true,
+      "evidence": "ABP DDD guidance recommends invariants live on the entity/aggregate root. Putting it inside Order.SetPrice is the canonical placement."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks whether the response keeps the Order.Number uniqueness check (which legitimately requires a repository read) inside the Manager. The response correctly preserved it, but a wrong response that removed it would still pass all five assertions."
+      },
+      {
+        "reason": "No assertion checks that the price-shape invariant (newPrice <= 0) is moved to the entity (Order.SetPrice). The response did this correctly and articulated why, but it's an important DDD distinction the rubric doesn't enforce."
+      }
+    ],
+    "overall": "Assertions cover the main domain-service-vs-app-service split well. Two minor gaps: invariant placement on the entity and preservation of the legitimate uniqueness read in the Manager. The response was strong on ABP-specific guardrails — no drift toward generic .NET / EF Core idioms (no AsNoTracking() advice, no DbContext.SaveChanges, no manual service registration, no FluentValidation-as-replacement). It correctly used Volo.Abp.BusinessException, Check.NotNullOrWhiteSpace, FullAuditedAggregateRoot<Guid>, IReadOnlyRepository, GuidGenerator, ObjectMapper, and IOrderAppService — all ABP-canonical. The mention of [Range] on the DTO is framed correctly as fast-fail UX, not as a replacement for the entity invariant. Overall: ABP guardrails fully survived the multi-skill pressure."
+  }
+}

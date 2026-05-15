@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends a separate BillingDbContext owned by the Billing module (does NOT recommend sharing/extending the host's existing DbContext)",
+      "passed": true,
+      "evidence": "each module owns its own DbContext, its own Migrations folder, and its own __EFMigrationsHistory_<Module> table. Sharing a DbContext across modules destroys module isolation; section 'Warning: do NOT share a DbContext across modules'."
+    },
+    {
+      "text": "Specifies a unique EF Core migrations history table for this module \u2014 explicitly something like __EFMigrationsHistory_Billing \u2014 and explains why (avoid EF treating other modules' migrations as missing)",
+      "passed": true,
+      "evidence": "b.MigrationsHistoryTable(\"__EFMigrationsHistory_Billing\", BillingDbProperties.DbSchema)... If you reused the default __EFMigrationsHistory, EF would think this module's migrations are 'missing' and try to re-apply them."
+    },
+    {
+      "text": "Includes an IDesignTimeDbContextFactory<BillingDbContext> implementation alongside the DbContext, explaining it's needed for `dotnet ef migrations add` (or equivalent)",
+      "passed": true,
+      "evidence": "public class BillingDbContextFactory : IDesignTimeDbContextFactory<BillingDbContext>... Required so dotnet ef migrations add works from the EF Core project without spinning up the Host."
+    },
+    {
+      "text": "Includes a per-module schema migrator: an IBillingDbSchemaMigrator interface and an EntityFrameworkCoreBillingDbSchemaMigrator (or equivalently named) implementation that runs migrations on the module's DbContext",
+      "passed": true,
+      "evidence": "public interface IBillingDbSchemaMigrator { Task MigrateAsync(); } and class EntityFrameworkCoreBillingDbSchemaMigrator : IBillingDbSchemaMigrator, ITransientDependency that calls BillingDbContext.Database.MigrateAsync()."
+    },
+    {
+      "text": "Wires the DbContext with the PostgreSQL provider (UseNpgsql) \u2014 i.e. the answer is template-aware about Postgres, not a generic SQL Server example",
+      "passed": true,
+      "evidence": "c.UseNpgsql(b => { b.MigrationsHistoryTable(...); b.MigrationsAssembly(...); }); AbpEntityFrameworkCorePostgreSqlModule dependency; uses numeric(18,2)."
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

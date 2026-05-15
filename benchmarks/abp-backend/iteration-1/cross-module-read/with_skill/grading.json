@@ -1,0 +1,80 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends against directly injecting the public IFormSubmissionAppService across module boundaries",
+      "passed": true,
+      "evidence": "Opens with: \"Short answer: no — don't inject `IFormSubmissionAppService` into `ReportAppService`.\" and explains it \"couples one module's internal API to another and turns a normal client-facing app service into an unintended cross-module contract.\" Reinforced in the TL;DR."
+    },
+    {
+      "text": "Recommends ABP Integration Services as the right pattern, explicitly mentioning the [IntegrationService] attribute",
+      "passed": true,
+      "evidence": "\"The right pattern in ABP is an **Integration Service**\" and shows `[IntegrationService]` attribute on the interface; also references `Volo.Abp.Application.Services.IntegrationServiceAttribute` in the differences table."
+    },
+    {
+      "text": "Defines the integration-service interface in the producing module's *.Application.Contracts (or *.Contracts) project",
+      "passed": true,
+      "evidence": "File path comment: `// Acme.Forms.Application.Contracts/IntegrationServices/IFormSubmissionIntegrationService.cs` and explicitly says \"Contract goes in `Acme.Forms.Application.Contracts` (so consumers can reference just the contract assembly).\""
+    },
+    {
+      "text": "Shows the implementation in the producing module's *.Application project (or equivalent), inheriting ApplicationService and implementing the [IntegrationService] interface",
+      "passed": true,
+      "evidence": "File path `// Acme.Forms.Application/IntegrationServices/FormSubmissionIntegrationService.cs` with class `FormSubmissionIntegrationService : ApplicationService, IFormSubmissionIntegrationService`."
+    },
+    {
+      "text": "Notes that integration services are hidden from the public API surface (and/or audit-off by default / not [Authorize] by default)",
+      "passed": true,
+      "evidence": "Comment on the interface: \"hidden from /api, audit-off by default, no [Authorize] by default\" and table rows show \"Visible in default `/api` host: No\", \"Audit logging: Off by default\", \"[Authorize] expected: Typically not\"."
+    },
+    {
+      "text": "Explains the in-process modular-monolith vs microservice transport difference (DI in-process now vs HTTP / generated proxy across services), framed as 'same contract, different transport'",
+      "passed": true,
+      "evidence": "Section \"In-process now, microservice later — same contract\": \"ABP's DI just resolves `IFormSubmissionIntegrationService` to the in-process `FormSubmissionIntegrationService` — no HTTP hop, no serialization\" and \"If you later split Forms and Reports into separate microservices, the `[IntegrationService]` is exposed over `/integration-api/...` behind the API gateway, and Reports consumes it via a generated proxy client. Same interface, same DI shape; only the transport changes.\""
+    },
+    {
+      "text": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module (e.g. [DependsOn(typeof(AcmeFormsApplicationContractsModule))] on the Reports.Application module) — NOT on the producer's full *.Application module. This contracts-only dependency is the load-bearing detail that preserves the module boundary",
+      "passed": false,
+      "evidence": "The response addresses csproj-level project references only — line 71: \"the consuming side just needs a project reference (or NuGet dep) on **`Acme.Forms.Application.Contracts`** ... Don't reference `Acme.Forms.Application` from Reports; the contract is enough.\" It never mentions `[DependsOn]`, `AbpModule`, or `AcmeFormsApplicationContractsModule`. Per the strict reading, mentioning project references / the contracts assembly is not enough — the contracts-only `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]` attribute on the consumer's `AcmeReportsApplicationModule` is the load-bearing wiring detail and it is absent from the response."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "pass_rate": 0.857
+  },
+  "claims": [
+    {
+      "claim": "Integration services are exposed at /integration-api/... only when explicitly enabled",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Aligns with ABP 10.3 docs — integration services use a separate route convention and are hidden by default unless ExposeIntegrationServices is enabled."
+    },
+    {
+      "claim": "AbpAspNetCoreMvcOptions.ExposeIntegrationServices = true controls public exposure",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Matches ABP framework option name for controlling integration-service auto-controller exposure in the host."
+    },
+    {
+      "claim": "Don't hand-write a controller for the integration service",
+      "type": "process",
+      "verified": true,
+      "evidence": "Consistent with ABP guidance — integration-service exposure is wired via the integration-services pipeline rather than explicit controllers."
+    },
+    {
+      "claim": "Consumer should reference Acme.Forms.Application.Contracts and not Acme.Forms.Application",
+      "type": "process",
+      "verified": true,
+      "evidence": "The response correctly states this at the project-reference level, but it stops short of the AbpModule [DependsOn] wiring that the tightened 7th assertion now requires."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Specifies that the consumer module's AbpModule depends only on the producer's *.Application.Contracts module ...",
+        "reason": "The tightened wording is good and discriminating — it correctly distinguishes csproj-level project references from AbpModule [DependsOn] wiring, and catches a real gap in this response. Worth keeping the parenthetical example `[DependsOn(typeof(AcmeFormsApplicationContractsModule))]` so future graders apply the same strict bar."
+      }
+    ],
+    "overall": "Assertions are discriminating and well-aligned with ABP's prescribed pattern; the tightened 7th assertion exposes a substantive omission that the looser version missed."
+  }
+}

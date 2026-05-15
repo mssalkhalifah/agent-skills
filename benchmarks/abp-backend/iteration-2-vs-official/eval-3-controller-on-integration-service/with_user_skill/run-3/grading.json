@@ -1,0 +1,30 @@
+{
+  "expectations": [
+    {
+      "text": "Tells the user to delete (or remove) the hand-written FormSubmissionIntegrationController",
+      "passed": true,
+      "evidence": "Verdict: delete the hand-written `FormSubmissionIntegrationController`. ... Delete `Acme.Forms.HttpApi/FormSubmissionIntegrationController.cs`."
+    },
+    {
+      "text": "Explains that ABP wires the integration-service HTTP exposure implicitly (via the integration-services pipeline / /integration-api / ExposeIntegrationServices / ApplicationServiceTypes.IntegrationServices), so writing a controller is unnecessary or wrong",
+      "passed": true,
+      "evidence": "ABP wires their HTTP exposure implicitly through the integration-services pipeline ... ABP's integration-services pipeline handles their HTTP exposure for you (in Microservice deployments, under `/integration-api/...` behind the gateway)"
+    },
+    {
+      "text": "Confirms that the [IntegrationService] interface and its ApplicationService implementation (the first two blocks) are correct as written",
+      "passed": true,
+      "evidence": "IFormSubmissionIntegrationService` is defined in the producing module's `*.Application.Contracts` project, marked `[IntegrationService]`, and extends `IApplicationService`. Correct. ... `FormSubmissionIntegrationService` lives in the producing module's `*.Application` project, derives from `ApplicationService`, and implements the contract. Correct."
+    },
+    {
+      "text": "Calls out that integration services are not meant to live on the public /api surface (any of: hidden from public API, audit-off, no [Authorize] by default \u2014 i.e. mismatched with what the controller is doing)",
+      "passed": true,
+      "evidence": "Integration services are **audit-off and have no `[Authorize]` by default** ... `[Route(\"api/forms/integration/form-submissions\")]` re-exposes it on the public `/api` surface. Integration services are **hidden from `/api` by default**"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

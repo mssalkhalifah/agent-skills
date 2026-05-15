@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Flags that the Manager calls InsertAsync / UpdateAsync (i.e. persists), and states this is wrong because domain services must not persist",
+      "passed": true,
+      "evidence": "Issue 2: 'Rule 3 violation - domain service is persisting... Domain services do not persist.'"
+    },
+    {
+      "text": "Recommends switching the Manager's injected repositories to IReadOnlyRepository<T, Guid> (for Customer and Order)",
+      "passed": true,
+      "evidence": "Corrected: IReadOnlyRepository<Customer, Guid> and IReadOnlyRepository<Order, Guid>"
+    },
+    {
+      "text": "Corrected ChangePriceAsync receives an Order as a parameter from the caller rather than loading it via _orderRepository.GetAsync(orderId) inside the Manager",
+      "passed": true,
+      "evidence": "'public Task ChangePriceAsync(Order order, decimal newPrice)'"
+    },
+    {
+      "text": "Corrected CreateAsync returns the new Order without calling InsertAsync inside the Manager",
+      "passed": true,
+      "evidence": "'return new Order(id, customerId, number);   // manager does not persist'"
+    },
+    {
+      "text": "Shows an OrderAppService that orchestrates: holds the tracking IRepository<Order, Guid>, mints Id via GuidGenerator, calls the Manager, and persists with InsertAsync/UpdateAsync",
+      "passed": true,
+      "evidence": "OrderAppService with IRepository<Order, Guid>, calls GuidGenerator.Create(), invokes _orderManager.CreateAsync, then InsertAsync/UpdateAsync"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

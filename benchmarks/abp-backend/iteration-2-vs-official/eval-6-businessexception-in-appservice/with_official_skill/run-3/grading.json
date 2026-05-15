@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+      "passed": true,
+      "evidence": "The application service should orchestrate use cases, not enforce business rules. Per abp-application-layer: 'Business logic in app service: put it in domain entities or domain services.'"
+    },
+    {
+      "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation \u2014 i.e. routes them through ABP's validation pipeline",
+      "passed": true,
+      "evidence": "public class CreateOrderDto { [Required] [StringLength(32, MinimumLength = 1)] public string Number ... This removes the first two BusinessException throws (Sales:OrderNumberRequired, Sales:OrderNumberTooLong) entirely."
+    },
+    {
+      "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept \u2014 a *Manager / domain service (or onto the entity) \u2014 not the AppService",
+      "passed": true,
+      "evidence": "public class OrderManager : DomainService ... if (await _orderRepository.NumberExistsAsync(number)) throw new BusinessException(\"Sales:OrderNumberAlreadyExists\").WithData(\"Number\", number);"
+    },
+    {
+      "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager \u2014 not the AppService",
+      "passed": true,
+      "evidence": "public void EnsureCanPlaceOrders() { if (IsBlocked) throw new BusinessException(\"Sales:CustomerIsBlocked\").WithData(\"CustomerId\", Id); }"
+    },
+    {
+      "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+      "passed": true,
+      "evidence": "Zero BusinessException throws remain in the application service. The exception-based error contract is unchanged from the client's perspective."
+    },
+    {
+      "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method \u2014 keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+      "passed": true,
+      "evidence": "We keep the exception-based error model (no Result<T>); we simply move throws to where the rule lives. BusinessException stays \u2014 it just disappears from the app service."
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}

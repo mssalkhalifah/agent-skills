@@ -1,0 +1,82 @@
+{
+  "expectations": [
+    {
+      "text": "States the principle that BusinessException throws should not live inside the AppService, and that input/invariant rules belong elsewhere",
+      "passed": true,
+      "evidence": "Opening section: 'Validation vs. business rules are mixed together and both expressed as raw BusinessException. Input validation belongs on the DTO; business rules belong in the domain.' and 'The application service is doing domain work... an application service should orchestrate — not enforce invariants.'"
+    },
+    {
+      "text": "Moves the input-format validations (Number required / max length) onto the DTO via DataAnnotations (e.g. [Required], [StringLength(32)]) or FluentValidation — i.e. routes them through ABP's validation pipeline",
+      "passed": true,
+      "evidence": "Section 1 'Move primitive input validation to the DTO' shows CreateOrderDto with [Required] and [StringLength(OrderConsts.MaxNumberLength)] on Number, and notes ABP runs data annotations / FluentValidation automatically yielding AbpValidationException."
+    },
+    {
+      "text": "Moves the cross-aggregate uniqueness check (existing OrderNumber) into a domain-layer concept — a *Manager / domain service (or onto the entity) — not the AppService",
+      "passed": true,
+      "evidence": "Section 4 introduces OrderManager : DomainService with the uniqueness check moved into it: 'if (await _orderRepository.NumberExistsAsync(number)) throw new BusinessException(SalesDomainErrorCodes.OrderNumberAlreadyExists)'. Also introduces IOrderRepository.NumberExistsAsync for the query as a domain concept."
+    },
+    {
+      "text": "Moves the Customer.IsBlocked guard into either an entity-behavior method (e.g. customer.EnsureCanReceiveNewOrder()) or the OrderManager — not the AppService",
+      "passed": true,
+      "evidence": "Section 4's OrderManager.CreateAsync includes 'if (customer.IsBlocked) throw new BusinessException(SalesDomainErrorCodes.CustomerIsBlocked).WithData(\"CustomerId\", customer.Id);' — the guard now lives in the OrderManager, not the AppService."
+    },
+    {
+      "text": "Refactored OrderAppService no longer contains throw new BusinessException(...) statements; it orchestrates (call manager, persist, map) only",
+      "passed": true,
+      "evidence": "Section 5 'Slim app service' shows the final OrderAppService.CreateAsync containing only GetAsync, _orderManager.CreateAsync, _orderRepository.InsertAsync, and ObjectMapper.Map — no throw new BusinessException statements remain in the service."
+    },
+    {
+      "text": "Domain-rule violations (uniqueness check, IsBlocked guard, customer-not-found) are signalled by throwing BusinessException (or UserFriendlyException / EntityNotFoundException) from the Manager / entity / entity-behavior method — keeps ABP's exception-based error model. Does NOT replace the throws with a functional Result<T,E> / Either / discriminated-union return type, and does NOT swallow them silently",
+      "passed": true,
+      "evidence": "All three domain-rule violations remain exception-based and live in the appropriate non-AppService layer: (1) Uniqueness — OrderManager.CreateAsync throws 'new BusinessException(SalesDomainErrorCodes.OrderNumberAlreadyExists).WithData(\"Number\", number)'. (2) IsBlocked — OrderManager.CreateAsync throws 'new BusinessException(SalesDomainErrorCodes.CustomerIsBlocked).WithData(\"CustomerId\", customer.Id)'. (3) Customer-not-found — handled by '_customerRepository.GetAsync(input.CustomerId)', and the response explicitly notes 'IRepository<T,TKey>.GetAsync(id) already throws EntityNotFoundException (which ABP maps to HTTP 404)'. OrderManager.CreateAsync return type is Task<Order>, not Result<Order,Error> / Either / discriminated union. No try/catch swallowing anywhere; the guidance to add Check.NotNullOrWhiteSpace inside the Order constructor further reinforces throw-based invariants."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "output_chars": 7921
+  },
+  "timing": {
+    "executor_duration_seconds": 59.6,
+    "total_duration_seconds": 59.6
+  },
+  "claims": [
+    {
+      "claim": "GetAsync throws EntityNotFoundException which maps to HTTP 404",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Standard ABP behavior; this matches IRepository<T,TKey>.GetAsync semantics."
+    },
+    {
+      "claim": "BusinessException without localization just sets the error code and the user sees a generic message",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Accurate — ABP localization resolution requires the code to be present in the localization resource; otherwise the code itself is shown."
+    },
+    {
+      "claim": "Original method has no permission check at all and should add [Authorize(SalesPermissions.Orders.Create)]",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Original code in the prompt does indeed lack any [Authorize] attribute or permission check; the suggestion is valid (though tangential to the BusinessException-focused assertions)."
+    },
+    {
+      "claim": "The OrderManager doesn't persist — it returns the new aggregate",
+      "type": "process",
+      "verified": true,
+      "evidence": "OrderManager.CreateAsync returns 'new Order(GuidGenerator.Create(), customer.Id, number)' without InsertAsync; the AppService performs InsertAsync."
+    },
+    {
+      "claim": "Domain-rule violations stay on ABP's exception-based error model rather than being routed through a Result<T,E>/Either return type",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Both OrderManager guards use 'throw new BusinessException(...)'; OrderManager.CreateAsync return type is Task<Order>; customer-not-found uses repository.GetAsync (EntityNotFoundException). No functional result wrapper is introduced anywhere in the refactor."
+    }
+  ],
+  "eval_feedback": {
+    "overall": "All six assertions concretely satisfied with refactored code. The response also goes beyond the assertions (authorization, error-code centralization, domain events, value objects), which doesn't hurt but is broader than what was asked. The newly-added 6th assertion is well-placed: it discriminates against responses that would 'modernize' ABP into a Result<T,E> style — this response correctly stays on ABP's exception model."
+  }
+}
