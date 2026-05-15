@@ -12,19 +12,19 @@
   "plugins": [
     {
       "name": "abp-backend",
-      "source": "abp-backend",
+      "source": "./abp-backend",
       "description": "ABP Framework backend guidance: DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authorization, validation, and the abp CLI / Studio / Suite.",
       "skills": ["./skills/abp-backend"]
     },
     {
       "name": "abp-frontend",
-      "source": "abp-frontend",
+      "source": "./abp-frontend",
       "description": "ABP Framework UI guidance for MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), and .NET MAUI — including LeptonX theming and service proxies.",
       "skills": ["./skills/abp-frontend"]
     },
     {
       "name": "writing-commit-messages",
-      "source": "writing-commit-messages",
+      "source": "./writing-commit-messages",
       "description": "Author Conventional Commits 1.0.0 messages so CHANGELOG generation, SemVer bumps, and commitlint stay correct.",
       "skills": ["./skills/writing-commit-messages"]
     }

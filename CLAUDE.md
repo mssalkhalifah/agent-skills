@@ -50,7 +50,7 @@ The `benchmarks/<skill>/` directory mirrors the eval ids in `plugins/<plugin>/sk
 
 Both supported channels read from the same source of truth in `plugins/`. There is no per-channel build step — skills are plain Markdown installed by copying.
 
-**Claude Code marketplace.** `.claude-plugin/marketplace.json` declares this repo as a Claude Code marketplace. It sets `metadata.pluginRoot: "./plugins"` and lists each plugin with `source: "<plugin-name>"` (resolved relative to `pluginRoot`) plus a per-plugin `skills: ["./skills/<name>"]` array (resolved relative to the plugin source). Each plugin also has its own `.claude-plugin/plugin.json`. Users add the marketplace by URL and pick the plugins they want.
+**Claude Code marketplace.** `.claude-plugin/marketplace.json` declares this repo as a Claude Code marketplace. It sets `metadata.pluginRoot: "./plugins"` and lists each plugin with `source: "./<plugin-name>"` (relative path under `pluginRoot` — the leading `./` is required, a bare name fails with "This plugin uses a source type your [version doesn't support]") plus a per-plugin `skills: ["./skills/<name>"]` array (resolved relative to the plugin source). Each plugin also has its own `.claude-plugin/plugin.json`. Users add the marketplace by URL and pick the plugins they want.
 
 **`vercel-labs/skills` CLI (npx).** The same `marketplace.json` is consumed by [`vercel-labs/skills`](https://github.com/vercel-labs/skills). The CLI clones this repo, reads `.claude-plugin/marketplace.json`, resolves the `pluginRoot` + `skills[]` entries, and copies the chosen `SKILL.md` (plus its directory tree) into the user's project under one of its discovery paths (`.claude/skills/`, `.agents/skills/`, etc.). Usage:
 
