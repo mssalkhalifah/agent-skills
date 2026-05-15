@@ -1,11 +1,11 @@
 {
-  "name": "abp-skills",
+  "name": "agent-skills",
   "owner": {
     "name": "mssalkhalifah",
     "email": "mssalkhalifah@protonmail.com"
   },
   "metadata": {
-    "description": "Skills for working in ABP Framework 10.3 .NET solutions — backend, frontend, and commit-message authoring.",
+    "description": "A personal collection of Claude Code skills — ABP Framework backend/frontend guidance and Conventional Commits authoring.",
     "version": "0.1.0"
   },
   "plugins": [
