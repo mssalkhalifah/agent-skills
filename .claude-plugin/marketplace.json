@@ -6,27 +6,23 @@
   },
   "metadata": {
     "description": "Skills for working in ABP Framework 10.3 .NET solutions — backend, frontend, and commit-message authoring.",
-    "version": "0.1.0",
-    "pluginRoot": "./plugins"
+    "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "abp-backend",
-      "source": "./abp-backend",
-      "description": "ABP Framework backend guidance: DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authorization, validation, and the abp CLI / Studio / Suite.",
-      "skills": ["./skills/abp-backend"]
+      "source": "./plugins/abp-backend",
+      "description": "ABP Framework backend guidance: DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authorization, validation, and the abp CLI / Studio / Suite."
     },
     {
       "name": "abp-frontend",
-      "source": "./abp-frontend",
-      "description": "ABP Framework UI guidance for MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), and .NET MAUI — including LeptonX theming and service proxies.",
-      "skills": ["./skills/abp-frontend"]
+      "source": "./plugins/abp-frontend",
+      "description": "ABP Framework UI guidance for MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), and .NET MAUI — including LeptonX theming and service proxies."
     },
     {
       "name": "writing-commit-messages",
-      "source": "./writing-commit-messages",
-      "description": "Author Conventional Commits 1.0.0 messages so CHANGELOG generation, SemVer bumps, and commitlint stay correct.",
-      "skills": ["./skills/writing-commit-messages"]
+      "source": "./plugins/writing-commit-messages",
+      "description": "Author Conventional Commits 1.0.0 messages so CHANGELOG generation, SemVer bumps, and commitlint stay correct."
     }
   ]
 }
