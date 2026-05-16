@@ -23,6 +23,11 @@
       "name": "writing-commit-messages",
       "source": "./plugins/writing-commit-messages",
       "description": "Author Conventional Commits 1.0.0 messages so CHANGELOG generation, SemVer bumps, and commitlint stay correct."
+    },
+    {
+      "name": "surveyjs",
+      "source": "./plugins/surveyjs",
+      "description": "SurveyJS 2.5.20 guidance: Form Library (React/Angular), Survey Creator, schema/API authoring, custom properties and question types, and server-side validation under Microsoft.ClearScript V8 in .NET."
     }
   ]
 }

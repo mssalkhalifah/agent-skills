@@ -1,0 +1,11 @@
+{
+  "name": "surveyjs",
+  "version": "0.1.0",
+  "description": "SurveyJS guidance pinned to 2.5.20 — Form Library (React/Angular), Survey Creator, schema/API authoring, custom properties/question types, and server-side validation via Microsoft.ClearScript V8 in .NET.",
+  "author": {
+    "name": "mssalkhalifah",
+    "email": "mssalkhalifah@protonmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["surveyjs", "survey-creator", "forms", "json-schema", "clearscript", "dotnet"]
+}
