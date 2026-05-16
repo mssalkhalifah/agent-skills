@@ -9,6 +9,7 @@ A personal collection of Claude Code skills, published as a marketplace of plugi
 | [`abp-backend`](plugins/abp-backend) | [ABP Framework](https://abp.io) 10.3 backend: DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authorization, validation, infrastructure, and the `abp` CLI / Studio / Suite. |
 | [`abp-frontend`](plugins/abp-frontend) | [ABP Framework](https://abp.io) 10.3 UI: MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), .NET MAUI, LeptonX themes, virtual-file-system overrides, and dynamic vs static service proxies. |
 | [`writing-commit-messages`](plugins/writing-commit-messages) | Conventional Commits 1.0.0 for commit messages and squash-merge PR titles. |
+| [`surveyjs`](plugins/surveyjs) | [SurveyJS](https://surveyjs.io) 2.5.20: Form Library (React/Angular), Survey Creator, schema/API authoring, custom properties and question types, and server-side validation under Microsoft.ClearScript V8 in .NET. |
 
 ## Install
 

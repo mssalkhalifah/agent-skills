@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A home for Claude Code **skills**, structured as a marketplace of plugins that also publishes to npm for `npx` installation. Three skills ship today:
+A home for Claude Code **skills**, structured as a marketplace of plugins that also publishes to npm for `npx` installation. Four skills ship today:
 
 - `abp-backend` — DDD layering, application services, repositories, EF Core, modules, multi-tenancy, authz, validation, infrastructure, CLI/Studio/Suite, integration tests.
 - `abp-frontend` — MVC/Razor, Blazor (Server/WASM/WebApp/MAUI Blazor), Angular, React Native (Expo), .NET MAUI, LeptonX themes, virtual-file-system overrides, dynamic vs static service proxies.
 - `writing-commit-messages` — Conventional Commits 1.0.0 authoring for commit messages and squash-merge PR titles.
+- `surveyjs` — SurveyJS 2.5.20 pinned: Form Library (React/Angular), Survey Creator, schema/API, custom properties/question types, and server-side validation via `survey-core` under Microsoft.ClearScript V8 in .NET.
 
 There is no application code in this repo. "Work" here means **authoring or revising the skills themselves**, maintaining the marketplace/npm wrappers, and producing benchmark artefacts.
 
